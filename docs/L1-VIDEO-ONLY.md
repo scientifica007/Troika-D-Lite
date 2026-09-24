@@ -91,3 +91,15 @@ CI can validate structure and deterministic pipeline construction, but L1 is not
 - no green corruption, checkerboard corruption, or unacceptable stutter is observed.
 
 A pipeline change that passes CI but fails this field gate is not accepted.
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The complete human L1 field gate passed on Ubuntu 24.04 / Wayland against runtime commit `69de46486933b6c8eec0e6928af1bccb1367f092`.
+
+Validated behaviors include 15 FPS, 30 FPS, Portal Cancel, normal Stop/finalization, close-while-recording, system-side screen-share Stop, and visual quality.
+
+The detailed evidence and videorate diagnostics are recorded in:
+
+- `docs/FIELD-TEST-L1-2026-09-25.md`
