@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 
 from troika_d_lite.pipeline import (
+    AUDIO_BITRATE_BPS,
+    AUDIO_RATE_HZ,
     ROBUST_MP4_MAX_DURATION_NS,
     ROBUST_MP4_UPDATE_PERIOD_NS,
     VideoStream,
@@ -79,18 +81,53 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
 
-    def test_l1_contains_no_out_of_scope_media_paths(self):
+    def test_microphone_path_uses_stable_clocking_and_aac(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
             Path("/tmp/a.mp4"),
+            microphone_device="alsa_input.usb-test",
+        )
+        self.assertIn("pulsesrc name=mic_src", plan.description)
+        self.assertIn(
+            'device="alsa_input.usb-test"',
+            plan.description,
+        )
+        self.assertIn("provide-clock=false", plan.description)
+        self.assertIn("slave-method=resample", plan.description)
+        self.assertIn(
+            f"audio/x-raw,rate={AUDIO_RATE_HZ}",
+            plan.description,
+        )
+        self.assertIn(
+            f"avenc_aac bitrate={AUDIO_BITRATE_BPS}",
+            plan.description,
+        )
+        self.assertIn("audio_mux_q", plan.description)
+        self.assertNotIn("audiomixer", plan.description)
+
+    def test_video_only_path_contains_no_audio_elements(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+        )
+        self.assertNotIn("pulsesrc", plan.description)
+        self.assertNotIn("avenc_aac", plan.description)
+
+    def test_l2_contains_no_out_of_scope_media_paths(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+            microphone_device="mic.test",
         )
         for forbidden in (
             "ximagesrc",
             "v4l2src",
             "compositor",
             "videocrop",
-            "pulsesrc",
+            "system_audio_src",
             "audiomixer",
             "vp8enc",
             "webmmux",
