@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "troika-d-lite"
+version = "0.1.0a0"
+description = "Minimal, dependable screen-and-audio recorder for Linux"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+authors = [{name = "Scientifica"}]
+classifiers = [
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+]
+
+[project.urls]
+Homepage = "https://github.com/scientifica007/Troika-D-Lite"
+Repository = "https://github.com/scientifica007/Troika-D-Lite"
+Issues = "https://github.com/scientifica007/Troika-D-Lite/issues"
+
+[project.scripts]
+troika-d-lite = "troika_d_lite.app:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
