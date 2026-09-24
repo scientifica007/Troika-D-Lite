@@ -25,7 +25,7 @@ The existing 15 FPS / 30 FPS and Start / Stop behavior remains unchanged.
 
 When microphone recording is enabled:
 
-\`\`\`text
+```text
 Pulse/PipeWire microphone
   → pulsesrc
   → audioconvert
@@ -35,12 +35,12 @@ Pulse/PipeWire microphone
   → AAC 128 kb/s
   → bounded mux queue
   → MP4 mux
-\`\`\`
+```
 
 The microphone source preserves the field-tested Troika D timing behavior:
 
-- \`provide-clock=false\`
-- \`slave-method=resample\`
+- `provide-clock=false`
+- `slave-method=resample`
 - 500 ms source buffer
 - 20 ms requested latency
 - 48 kHz raw audio before AAC
@@ -51,7 +51,7 @@ No DSP, denoising, automatic gain processing, or application-level microphone bo
 
 L2 derives only the microphone-relevant part of Troika D device discovery.
 
-- \`pactl --format=json list sources\` is preferred.
+- `pactl --format=json list sources` is preferred.
 - monitor/system-audio sources are excluded.
 - a short-list fallback is retained for compatibility.
 - the Pulse/PipeWire default source is preferred when available.
@@ -63,12 +63,12 @@ This specifically preserves the field lesson that a microphone connected after a
 
 ## Stop/finalization
 
-L1 pushed EOS from \`screen_src\`.
+L1 pushed EOS from `screen_src`.
 
 L2 must push EOS from every active live capture source:
 
-- \`screen_src\`
-- \`mic_src\`, when present.
+- `screen_src`
+- `mic_src`, when present.
 
 Only if source-level EOS is not accepted does the recorder fall back to pipeline-level EOS.
 
@@ -80,7 +80,7 @@ L2 does not add:
 
 - system audio;
 - microphone + system mixing;
-- \`audiomixer\`;
+- `audiomixer`;
 - audio-only mode;
 - DSP/noise reduction;
 - gain controls;
