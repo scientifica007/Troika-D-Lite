@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "milestone/**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native runtime/test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-gi \
+            gir1.2-gtk-3.0 \
+            gir1.2-gstreamer-1.0 \
+            gstreamer1.0-tools \
+            gstreamer1.0-pipewire \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly
+
+      - name: Parse project metadata
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as handle:
+              data = tomllib.load(handle)
+          assert data["project"]["name"] == "troika-d-lite"
+          print("pyproject.toml: PASS")
+          PY
+
+      - name: Native GTK/GStreamer import smoke test
+        run: |
+          PYTHONPATH=src /usr/bin/python3 -c \
+            "import troika_d_lite.app; import troika_d_lite.recorder"
+
+      - name: Required GStreamer element smoke test
+        run: |
+          for element in \
+            pipewiresrc queue videoconvert videorate videoscale \
+            x264enc h264parse mp4mux filesink
+          do
+            gst-inspect-1.0 "$element" >/dev/null
+          done
+
+      - name: Unit tests
+        run: |
+          PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
+
+      - name: Compile Python sources
+        run: |
+          /usr/bin/python3 -m compileall -q src tests
