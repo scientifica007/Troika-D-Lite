@@ -92,7 +92,9 @@ L2 does not add:
 
 ## Human acceptance gate
 
-L2 is not accepted until Ubuntu 24.04 / Wayland field testing confirms:
+**PASS — 2026-09-25.**
+
+Ubuntu 24.04 / Wayland field testing confirmed:
 
 1. video-only 15 FPS remains good;
 2. video-only 30 FPS remains good;
@@ -106,3 +108,16 @@ L2 is not accepted until Ubuntu 24.04 / Wayland field testing confirms:
 10. no unacceptable video regression, audio drift, broken audio, or finalization timeout is observed.
 
 Built-in microphone noise or gain must not be classified as an application defect without independent evidence that the recording path itself is responsible.
+
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The human L2 field gate passed against runtime commit `95e6a6fabe8409f5371253a1bd79b58afb58f9b2`.
+
+Validated behaviors include video-only regression checks, microphone recording at 15/30 FPS, external microphone hot-plug, multiple-device selection, normal Stop/finalization, close-while-recording, system-side Portal Stop, and longer-run synchronization.
+
+Detailed evidence and diagnostics are recorded in:
+
+- `docs/FIELD-TEST-L2-2026-09-25.md`
