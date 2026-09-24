@@ -26,10 +26,13 @@ jobs:
             gir1.2-gstreamer-1.0 \
             gstreamer1.0-tools \
             gstreamer1.0-pipewire \
+            gstreamer1.0-pulseaudio \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad \
-            gstreamer1.0-plugins-ugly
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            pulseaudio-utils
 
       - name: Parse project metadata
         run: |
@@ -50,7 +53,8 @@ jobs:
         run: |
           for element in \
             pipewiresrc queue videoconvert videorate videoscale \
-            x264enc h264parse mp4mux filesink
+            x264enc h264parse mp4mux filesink \
+            pulsesrc audioconvert audioresample avenc_aac
           do
             gst-inspect-1.0 "$element" >/dev/null
           done

@@ -7,11 +7,16 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GLib, Gst
 
-from .pipeline import REQUIRED_GST_ELEMENTS, build_video_pipeline
+from .pipeline import (
+    REQUIRED_MICROPHONE_GST_ELEMENTS,
+    REQUIRED_VIDEO_GST_ELEMENTS,
+    build_video_pipeline,
+)
 from .portal import PortalClient
 
 
 FINALIZE_TIMEOUT_SECONDS = 12
+SOURCE_NAMES = ("screen_src", "mic_src")
 
 
 def is_wayland_session() -> bool:
@@ -43,20 +48,25 @@ class Recorder:
         self.stop_timeout_id = 0
         self.stopping = False
         self.active_fps: Optional[int] = None
+        self.active_microphone = False
 
     @property
     def active(self) -> bool:
         return self.pipeline is not None
 
-    def _require_runtime(self) -> None:
+    def _require_runtime(self, include_microphone: bool) -> None:
         if not is_wayland_session():
             raise RuntimeError(
-                "Troika D Lite L1 currently supports Ubuntu/Wayland only"
+                "Troika D Lite currently supports Ubuntu/Wayland only"
             )
+
+        required = list(REQUIRED_VIDEO_GST_ELEMENTS)
+        if include_microphone:
+            required.extend(REQUIRED_MICROPHONE_GST_ELEMENTS)
 
         missing = [
             name
-            for name in REQUIRED_GST_ELEMENTS
+            for name in required
             if Gst.ElementFactory.find(name) is None
         ]
         if missing:
@@ -65,13 +75,19 @@ class Recorder:
                 + ", ".join(missing)
             )
 
-    def start(self, fps: int, output_path: Path) -> None:
+    def start(
+        self,
+        fps: int,
+        output_path: Path,
+        microphone_device: Optional[str] = None,
+    ) -> None:
         if self.pipeline is not None or self.portal_session is not None:
             raise RuntimeError("Recorder is already busy")
         if fps not in (15, 30):
             raise ValueError("FPS must be 15 or 30")
 
-        self._require_runtime()
+        include_microphone = microphone_device is not None
+        self._require_runtime(include_microphone)
         self.stopping = False
 
         try:
@@ -91,10 +107,12 @@ class Recorder:
                 capture.stream,
                 fps,
                 output_path,
+                microphone_device=microphone_device,
             )
             pipeline = Gst.parse_launch(plan.description)
             self.pipeline = pipeline
             self.active_fps = fps
+            self.active_microphone = include_microphone
 
             self.bus = pipeline.get_bus()
             self.bus.add_signal_watch()
@@ -110,7 +128,10 @@ class Recorder:
                 )
 
             self.state_cb(True)
-            self.status_cb(f"Recording — {fps} FPS — {plan.encoder}")
+            mic_label = " — microphone" if include_microphone else ""
+            self.status_cb(
+                f"Recording — {fps} FPS — {plan.encoder}{mic_label}"
+            )
         except Exception:
             self._force_null_and_cleanup()
             raise
@@ -123,25 +144,46 @@ class Recorder:
         self.stopping = True
         self.status_cb("Finalizing recording…")
 
-        source = pipeline.get_by_name("screen_src")
-        accepted = False
-        if source is not None:
+        source_results = {}
+        for name in SOURCE_NAMES:
+            source = pipeline.get_by_name(name)
+            if source is None:
+                continue
             pad = source.get_static_pad("src")
-            if pad is not None:
-                try:
-                    accepted = bool(
-                        pad.push_event(Gst.Event.new_eos())
-                    )
-                except Exception:
-                    accepted = False
+            if pad is None:
+                source_results[name] = False
+                continue
+            try:
+                source_results[name] = bool(
+                    pad.push_event(Gst.Event.new_eos())
+                )
+            except Exception:
+                source_results[name] = False
 
+        accepted = bool(source_results) and all(
+            source_results.values()
+        )
+        pipeline_fallback = False
         if not accepted:
+            pipeline_fallback = True
             try:
                 accepted = bool(
                     pipeline.send_event(Gst.Event.new_eos())
                 )
             except Exception:
                 accepted = False
+
+        summary = ",".join(
+            f"{name}:{int(ok)}"
+            for name, ok in source_results.items()
+        ) or "none"
+        print(
+            "EOS request: "
+            f"source-pads=[{summary}] "
+            f"pipeline-fallback={int(pipeline_fallback)} "
+            f"accepted={int(accepted)}",
+            flush=True,
+        )
 
         if not accepted:
             self.status_cb(
@@ -176,6 +218,7 @@ class Recorder:
         print(
             "Video timing stats "
             f"[{reason}] fps={self.active_fps} "
+            f"mic={int(self.active_microphone)} "
             f"in={values['in']} out={values['out']} "
             f"drop={values['drop']} "
             f"duplicate={values['duplicate']}",
@@ -285,6 +328,7 @@ class Recorder:
         self.portal = None
         self.stopping = False
         self.active_fps = None
+        self.active_microphone = False
 
         if was_active:
             self.state_cb(False)
