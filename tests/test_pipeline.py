@@ -81,7 +81,7 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
 
-    def test_microphone_path_uses_stable_clocking_and_aac(self):
+    def test_microphone_path_remains_field_baseline(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
@@ -89,10 +89,7 @@ class PipelineTests(unittest.TestCase):
             microphone_device="alsa_input.usb-test",
         )
         self.assertIn("pulsesrc name=mic_src", plan.description)
-        self.assertIn(
-            'device="alsa_input.usb-test"',
-            plan.description,
-        )
+        self.assertIn('device="alsa_input.usb-test"', plan.description)
         self.assertIn("provide-clock=false", plan.description)
         self.assertIn("slave-method=resample", plan.description)
         self.assertIn(
@@ -103,8 +100,41 @@ class PipelineTests(unittest.TestCase):
             f"avenc_aac bitrate={AUDIO_BITRATE_BPS}",
             plan.description,
         )
-        self.assertIn("audio_mux_q", plan.description)
         self.assertNotIn("audiomixer", plan.description)
+
+    def test_system_audio_path_uses_monitor_source_and_aac(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+            system_audio_device="alsa_output.pci.monitor",
+        )
+        self.assertIn(
+            "pulsesrc name=system_audio_src",
+            plan.description,
+        )
+        self.assertIn(
+            'device="alsa_output.pci.monitor"',
+            plan.description,
+        )
+        self.assertIn("system_capture_q", plan.description)
+        self.assertIn("provide-clock=false", plan.description)
+        self.assertIn("slave-method=resample", plan.description)
+        self.assertIn(
+            f"avenc_aac bitrate={AUDIO_BITRATE_BPS}",
+            plan.description,
+        )
+        self.assertNotIn("audiomixer", plan.description)
+
+    def test_l3_rejects_dual_audio_until_l4(self):
+        with self.assertRaises(ValueError):
+            build_video_pipeline(
+                VideoStream(fd=9, node_id=77),
+                30,
+                Path("/tmp/a.mp4"),
+                microphone_device="mic.test",
+                system_audio_device="sink.monitor",
+            )
 
     def test_video_only_path_contains_no_audio_elements(self):
         plan = build_video_pipeline(
@@ -115,19 +145,18 @@ class PipelineTests(unittest.TestCase):
         self.assertNotIn("pulsesrc", plan.description)
         self.assertNotIn("avenc_aac", plan.description)
 
-    def test_l2_contains_no_out_of_scope_media_paths(self):
+    def test_l3_contains_no_out_of_scope_media_paths(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
             Path("/tmp/a.mp4"),
-            microphone_device="mic.test",
+            system_audio_device="sink.monitor",
         )
         for forbidden in (
             "ximagesrc",
             "v4l2src",
             "compositor",
             "videocrop",
-            "system_audio_src",
             "audiomixer",
             "vp8enc",
             "webmmux",
