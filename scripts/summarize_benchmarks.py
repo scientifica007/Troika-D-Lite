@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 
@@ -50,6 +50,28 @@ def validate_lite_matrix(payloads: list[dict]) -> set[tuple[int, bool, bool]]:
         if payload.get("app") == "lite"
     }
     return expected - observed
+
+
+def validate_controlled_comparison(
+    payloads: list[dict],
+    repetitions: int = 3,
+) -> dict[tuple[str, str], int]:
+    expected = {
+        ("A-15-video-low", "lite"): repetitions,
+        ("A-15-video-low", "troika-d"): repetitions,
+        ("B-30-dual-high", "lite"): repetitions,
+        ("B-30-dual-high", "troika-d"): repetitions,
+    }
+    observed = Counter(
+        (payload.get("scenario"), payload.get("app"))
+        for payload in payloads
+        if payload.get("finalization_outcome") == "eos"
+    )
+    return {
+        key: required - observed.get(key, 0)
+        for key, required in expected.items()
+        if observed.get(key, 0) < required
+    }
 
 
 def aggregate(payloads: list[dict]) -> list[dict]:
@@ -110,6 +132,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Fail unless all 8 Lite FPS/audio combinations are present.",
     )
+    parser.add_argument(
+        "--require-controlled-comparison",
+        action="store_true",
+        help="Fail unless A/B each have 3 EOS runs per application.",
+    )
     return parser.parse_args()
 
 
@@ -128,6 +155,18 @@ def main() -> int:
             )
             raise SystemExit(f"Incomplete Lite performance matrix: {formatted}")
         print("Lite 8-case performance matrix: COMPLETE")
+
+    if args.require_controlled_comparison:
+        missing = validate_controlled_comparison(payloads)
+        if missing:
+            formatted = ", ".join(
+                f"{scenario}/{app}:missing={count}"
+                for (scenario, app), count in sorted(missing.items())
+            )
+            raise SystemExit(
+                f"Incomplete controlled comparison: {formatted}"
+            )
+        print("Controlled comparison repetitions: COMPLETE")
 
     rows = aggregate(payloads)
     print(markdown_table(rows))

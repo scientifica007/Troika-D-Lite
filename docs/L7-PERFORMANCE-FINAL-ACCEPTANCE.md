@@ -121,6 +121,15 @@ Use two representative scenarios and run each **three times per application**.
 - same high-motion local playback/workload;
 - 60-second measured recording window.
 
+Preferred Layer 2 runner:
+
+```bash
+cd ~/Troika-D-Lite
+python3 scripts/run_controlled_comparison.py
+```
+
+It validates pinned revisions, alternates application order, resumes successful runs, prints the required UI configuration, and generates the summary after all repetitions.
+
 Layer 2 produces 12 measured sessions:
 
 ```text
@@ -130,6 +139,12 @@ Layer 2 produces 12 measured sessions:
 Together with the eight-case Lite coverage sweep, the planned L7 measurement set is 20 sessions.
 
 The already accepted L4 matrix remains the functional baseline; L7 adds quantitative resource measurements rather than re-litigating functionality.
+
+## Layer 1 field status
+
+**PASS — 2026-09-25.**
+
+All eight required Lite FPS/audio combinations were measured and all finalized through normal EOS. Aggregate evidence is recorded in `docs/FIELD-TEST-L7-2026-09-25.md`.
 
 ## Workload discipline
 

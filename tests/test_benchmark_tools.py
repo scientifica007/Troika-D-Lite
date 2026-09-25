@@ -28,6 +28,10 @@ matrix_runner = load(
     "run_lite_matrix",
     ROOT / "scripts" / "run_lite_matrix.py",
 )
+comparison_runner = load(
+    "run_controlled_comparison",
+    ROOT / "scripts" / "run_controlled_comparison.py",
+)
 
 
 class BenchmarkMathTests(unittest.TestCase):
@@ -72,6 +76,21 @@ class MatrixRunnerTests(unittest.TestCase):
         self.assertEqual(observed, expected)
 
 
+class ComparisonRunnerTests(unittest.TestCase):
+    def test_schedule_has_three_runs_per_app_and_scenario(self):
+        from collections import Counter
+
+        self.assertEqual(
+            Counter(comparison_runner.SCHEDULE),
+            {
+                ("A-15-video-low", "lite"): 3,
+                ("A-15-video-low", "troika-d"): 3,
+                ("B-30-dual-high", "lite"): 3,
+                ("B-30-dual-high", "troika-d"): 3,
+            },
+        )
+
+
 class BenchmarkSummaryTests(unittest.TestCase):
     def test_matrix_validator_detects_and_accepts_all_eight_cases(self):
         payloads = []
@@ -90,6 +109,28 @@ class BenchmarkSummaryTests(unittest.TestCase):
 
         payloads.pop()
         self.assertEqual(len(summary.validate_lite_matrix(payloads)), 1)
+
+    def test_controlled_comparison_validator_requires_three_each(self):
+        payloads = []
+        for scenario in ("A-15-video-low", "B-30-dual-high"):
+            for app in ("lite", "troika-d"):
+                for _ in range(3):
+                    payloads.append(
+                        {
+                            "scenario": scenario,
+                            "app": app,
+                            "finalization_outcome": "eos",
+                        }
+                    )
+        self.assertEqual(
+            summary.validate_controlled_comparison(payloads),
+            {},
+        )
+        payloads.pop()
+        self.assertEqual(
+            summary.validate_controlled_comparison(payloads),
+            {("B-30-dual-high", "troika-d"): 1},
+        )
 
     def test_aggregate_uses_median_per_app_and_scenario(self):
         payloads = []
