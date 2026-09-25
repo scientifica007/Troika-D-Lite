@@ -322,14 +322,52 @@ A separate YouTube playback test with page movement and workspace switching did 
 
 This correlation matters: the observed capture degradation coincided with host/compositor responsiveness degradation rather than occurring while the desktop remained responsive.
 
-### Current classification
+### Stress classification resolution
+
+The same local-video + workspace-switch pattern was reproduced again with **no recorder running**.
+
+The host still exhibited the same desktop/pointer stutter.
+
+This result resolves the classification:
+
+**HOST / VIDEO-PLAYER / COMPOSITOR SATURATION — NOT LITE-SPECIFIC.**
+
+Because the condition reproduces without Troika D Lite, an additional Troika D recorder comparison is not required for this classification.
+
+The earlier recorded motion/audio interruption is therefore interpreted as a consequence of the host becoming temporarily unresponsive, not as an independent Lite pipeline failure.
+
+### Final installed-package classification
 
 **Installed-package recorder lifecycle: PASS.**
 
-**Media quality under ordinary/high workload: PASS where the host remains responsive.**
+**Media behavior while the host remains responsive: PASS.**
 
-**Extreme local-video + workspace-switch condition: CLASSIFICATION HOLD.**
+**Local-video + workspace-switch stutter: external host-capacity observation, non-blocking.**
 
-The evidence currently favors a host-resource/compositor saturation explanation because mouse/desktop responsiveness degraded at the same moment as the recording. It is not yet sufficient to declare the recorder itself defective or to dismiss the observation as purely environmental.
+The final package run:
 
-One focused classification check remains: reproduce the same local-video/workspace-switch workload (1) with no recorder and (2) with the pinned Troika D reference. This distinguishes host/video-player saturation from a Lite-specific interaction.
+- used 30 FPS with microphone + system audio;
+- materially exceeded the requested 2–3 minute duration;
+- produced a playable MP4;
+- stopped through clean source-level EOS;
+- reported `pipeline-fallback=0`;
+- reported no `finalize-timeout`;
+- reported no `Recording error`.
+
+## L7 final acceptance
+
+All L7 acceptance requirements are satisfied.
+
+- benchmark tooling: PASS;
+- complete Lite eight-case performance matrix: PASS;
+- controlled Lite vs Troika D comparison: COMPLETE;
+- low-motion timer-induced CPU regression: identified, corrected, and revalidated;
+- no repeated finalization timeout;
+- current-head Debian package: installed and field-tested;
+- final long 30 FPS dual-audio run: PASS;
+- stress-only interruption: reproduced without any recorder and classified external to Lite;
+- aggregate findings and conclusions: documented.
+
+**L7 FINAL FIELD GATE: PASS.**
+
+A beta release decision remains a separate L8 milestone.

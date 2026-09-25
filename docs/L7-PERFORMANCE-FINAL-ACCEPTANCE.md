@@ -289,19 +289,11 @@ The current-head Debian package `0.1.0~alpha0-2` completed an approximately 5 mi
 
 A media interruption was observed only during a period when the desktop itself became visibly overloaded while switching workspaces during local-video playback. YouTube playback plus workspace switching did not reproduce the issue.
 
-Because the host mouse/compositor responsiveness degraded simultaneously, L7 does not classify this as a Lite pipeline failure without one final workload-isolation check.
+The focused workload-isolation check reproduced the same local-video/workspace-switch host stutter with **no recorder running**.
 
-Required focused classification:
+That result resolves the observation as an environment/video-player/compositor capacity condition rather than a Lite-specific recorder defect.
 
-1. same local video + same workspace-switch pattern with **no recorder**;
-2. same local video + same workspace-switch pattern with pinned **Troika D Balanced**, 30 FPS, mic+system audio;
-3. note whether host pointer/desktop stutter and recorded audio/motion interruption occur.
-
-If the host stutters without a recorder, the condition is an environment/video-player saturation limit.
-
-If both recorders trigger the same host-level stutter, the condition is a machine/compositor capacity limit under screen-recording load.
-
-If only Lite reproduces the issue while Troika D and the no-recorder baseline remain responsive, reopen L7 as a Lite-specific performance defect.
+A separate Troika D stress reproduction is no longer required for this classification.
 
 ## Final field acceptance
 
@@ -321,16 +313,21 @@ The known partially erased text in the desktop Share Screen Portal remains an ex
 
 ## L7 acceptance gate
 
-L7 passes when:
+**PASS — 2026-09-25.**
+
+Validated:
 
 - benchmark tooling passes CI;
 - all eight Lite FPS/audio combinations have performance measurements;
 - three repetitions exist for each application/scenario pair in the two controlled comparison scenarios;
 - measurements are internally consistent enough to interpret;
-- no reproducible recorder regression appears;
+- the only reproducible Lite-specific performance regression found was the live recording timer; it was removed and the corrected visible-window Scenario A recheck passed;
 - no repeated finalization timeout appears;
-- final installed-package 2–3 minute dual-audio recording passes;
-- benchmark results and field conclusion are committed to the repository.
+- the current-head installed Debian package completed a long 30 FPS microphone+system-audio recording through clean EOS;
+- the local-video/workspace-switch stutter reproduces without any recorder and is classified as an external host/video-player/compositor saturation condition;
+- benchmark results and the field conclusion are committed to the repository.
+
+**L7 FINAL FIELD GATE: PASS.**
 
 L7 reports measured differences. It does not require Troika D Lite to win every metric. The product goal is materially lower complexity with dependable performance on the target machine.
 
