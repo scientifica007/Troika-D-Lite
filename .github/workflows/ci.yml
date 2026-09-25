@@ -17,24 +17,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install native runtime/test dependencies
+      - name: Install native runtime/build/test dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             python3-gi \
+            python3-setuptools \
+            python3-wheel \
+            python3-build \
             gir1.2-gtk-3.0 \
             gir1.2-gstreamer-1.0 \
             gstreamer1.0-tools \
             gstreamer1.0-pipewire \
-            gstreamer1.0-pulseaudio \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             gstreamer1.0-plugins-bad \
             gstreamer1.0-plugins-ugly \
             gstreamer1.0-libav \
             pulseaudio-utils \
+            xdg-desktop-portal \
             desktop-file-utils \
-            appstream
+            appstream \
+            lintian
 
       - name: Parse project metadata
         run: |
@@ -43,6 +47,7 @@ jobs:
           with open("pyproject.toml", "rb") as handle:
               data = tomllib.load(handle)
           assert data["project"]["name"] == "troika-d-lite"
+          assert data["project"]["version"] == "0.1.0a0"
           print("pyproject.toml: PASS")
           PY
 
@@ -61,6 +66,11 @@ jobs:
             gst-inspect-1.0 "$element" >/dev/null
           done
 
+      - name: Runtime dependency ownership audit
+        run: |
+          bash -n scripts/audit-runtime-deps.sh
+          bash scripts/audit-runtime-deps.sh
+
       - name: Desktop integration validation
         run: |
           desktop-file-validate \
@@ -71,6 +81,50 @@ jobs:
       - name: Unit tests
         run: |
           PYTHONPATH=src /usr/bin/python3 -m unittest discover -s tests -v
+
+      - name: Build Python release artifacts
+        run: |
+          rm -rf dist build
+          /usr/bin/python3 -m build --no-isolation
+          /usr/bin/python3 - <<'PY'
+          from pathlib import Path
+          wheels = list(Path("dist").glob("troika_d_lite-0.1.0a0-*.whl"))
+          sdists = list(Path("dist").glob("troika-d-lite-0.1.0a0.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit(
+                  f"Unexpected release artifacts: wheels={wheels}, sdists={sdists}"
+              )
+          print("Python release artifact build: PASS")
+          PY
+
+      - name: Build and verify Debian package
+        run: |
+          bash -n scripts/build-deb.sh
+          bash -n scripts/verify-deb.sh
+          DEB_PATH="$(bash scripts/build-deb.sh)"
+          echo "DEB_PATH=$DEB_PATH" >> "$GITHUB_ENV"
+          bash scripts/verify-deb.sh "$DEB_PATH"
+          dpkg-deb --field "$DEB_PATH" Package Version Architecture Depends Recommends
+          lintian --fail-on error "$DEB_PATH"
+
+      - name: Install Debian package with APT
+        run: |
+          sudo apt-get install -y --no-install-recommends "$DEB_PATH"
+          test "$(command -v troika-d-lite)" = "/usr/bin/troika-d-lite"
+          test -f /usr/share/applications/io.github.scientifica007.TroikaDLite.desktop
+          test -f /usr/share/metainfo/io.github.scientifica007.TroikaDLite.metainfo.xml
+          test -f /usr/share/icons/hicolor/scalable/apps/io.github.scientifica007.TroikaDLite.svg
+          PYTHONPATH=/usr/lib/troika-d-lite /usr/bin/python3 -c \
+            "import troika_d_lite.app; import troika_d_lite.recorder"
+          sudo apt-get remove -y troika-d-lite
+
+      - name: Upload Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: troika-d-lite-deb-alpha
+          path: dist-deb/*.deb
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Compile Python sources
         run: |

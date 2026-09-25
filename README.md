@@ -10,7 +10,7 @@ Its product rule is intentionally narrow:
 
 ## Current status
 
-The core v0.1 recorder is implemented and field-validated on Ubuntu 24.04 / Wayland through L4.
+The core v0.1 recorder and minimal product UI are implemented and field-validated on Ubuntu 24.04 / Wayland through L5.
 
 Validated recording states:
 
@@ -25,9 +25,7 @@ Validated recording states:
 - system-side Portal Stop;
 - microphone hot-plug and selection.
 
-L5 adds the minimal product UI and desktop-integration metadata.
-
-Native Debian packaging, dependency minimization, and clean-install verification remain for the next packaging milestone.
+L6 adds native Debian/Ubuntu packaging and an explicit runtime dependency audit. The package is still a development artifact until the L6 human installation gate passes.
 
 ## Product boundary
 
@@ -66,7 +64,7 @@ The installed command entry point is:
 troika-d-lite
 ```
 
-Desktop launcher installation is completed by the distribution/packaging milestone.
+The L6 Debian package installs the command, desktop launcher, icon, and AppStream metadata.
 
 ## Documentation
 
@@ -79,6 +77,7 @@ Start with:
 - `docs/L3-SYSTEM-AUDIO.md`
 - `docs/L4-DUAL-AUDIO.md`
 - `docs/L5-PRODUCT-UI-DESKTOP.md`
+- `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`
 
 Field-test evidence is kept under `docs/FIELD-TEST-*.md`.
 
