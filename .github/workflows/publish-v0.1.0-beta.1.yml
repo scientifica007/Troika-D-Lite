@@ -1,0 +1,133 @@
+name: Publish v0.1.0-beta.1
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - milestone/release-v0.1.0-beta.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v0.1.0-beta.1
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+
+    env:
+      TAG: v0.1.0-beta.1
+      RELEASE_NAME: Troika D Lite v0.1.0-beta.1
+      DEB_NAME: troika-d-lite_0.1.0~beta1-1_all.deb
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Verify CI-tested SHA is current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          TESTED_SHA="${{ github.event.workflow_run.head_sha }}"
+          MAIN_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+
+          echo "CI-tested SHA: $TESTED_SHA"
+          echo "Current main:   $MAIN_SHA"
+
+          test "$TESTED_SHA" = "$MAIN_SHA"
+          echo "RELEASE_SHA=$TESTED_SHA" >> "$GITHUB_ENV"
+
+      - name: Check out exact release SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Verify release metadata
+        run: |
+          /usr/bin/python3 scripts/verify-release-metadata.py
+
+      - name: Install package-verification tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             desktop-file-utils             appstream             lintian
+
+      - name: Build and verify final Debian asset
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf dist-deb
+          DEB_PATH="$(bash scripts/build-deb.sh)"
+          bash scripts/verify-deb.sh "$DEB_PATH"
+          lintian --fail-on error "$DEB_PATH"
+
+          test "$(basename "$DEB_PATH")" = "$DEB_NAME"
+
+          SHA256="$(sha256sum "$DEB_PATH" | awk '{print $1}')"
+          echo "deb_path=$DEB_PATH" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release asset"
+            echo
+            echo "- File: \`$DEB_NAME\`"
+            echo "- SHA256: \`$SHA256\`"
+            echo "- Commit: \`$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or verify release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if TAG_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" 2>/dev/null)"; then
+            TAG_SHA="$(jq -r '.object.sha' <<<"$TAG_JSON")"
+            test "$TAG_SHA" = "$RELEASE_SHA"
+            echo "Existing tag points to the expected release SHA."
+          else
+            gh api               --method POST               "repos/${GITHUB_REPOSITORY}/git/refs"               -f "ref=refs/tags/${TAG}"               -f "sha=${RELEASE_SHA}" >/dev/null
+            echo "Created tag $TAG at $RELEASE_SHA."
+          fi
+
+      - name: Create GitHub prerelease and upload Debian asset
+        shell: bash
+        env:
+          DEB_PATH: ${{ steps.package.outputs.deb_path }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; verifying and refreshing the Debian asset."
+            gh release upload               "$TAG"               "$DEB_PATH"               --repo "$GITHUB_REPOSITORY"               --clobber
+          else
+            gh release create               "$TAG"               "$DEB_PATH"               --repo "$GITHUB_REPOSITORY"               --verify-tag               --prerelease               --title "$RELEASE_NAME"               --notes-file docs/RELEASE-NOTES-v0.1.0-beta.1.md
+          fi
+
+      - name: Verify published tag, release, and asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_SHA="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}"               --jq '.object.sha'
+          )"
+          test "$TAG_SHA" = "$RELEASE_SHA"
+
+          RELEASE_JSON="$(
+            gh release view "$TAG"               --repo "$GITHUB_REPOSITORY"               --json tagName,name,isDraft,isPrerelease,url,assets
+          )"
+
+          test "$(jq -r '.tagName' <<<"$RELEASE_JSON")" = "$TAG"
+          test "$(jq -r '.name' <<<"$RELEASE_JSON")" = "$RELEASE_NAME"
+          test "$(jq -r '.isDraft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.isPrerelease' <<<"$RELEASE_JSON")" = "true"
+          jq -e --arg name "$DEB_NAME"             '.assets | any(.name == $name)'             <<<"$RELEASE_JSON" >/dev/null
+
+          RELEASE_URL="$(jq -r '.url' <<<"$RELEASE_JSON")"
+          echo "Published and verified: $RELEASE_URL"
+          echo "Release URL: $RELEASE_URL" >> "$GITHUB_STEP_SUMMARY"
