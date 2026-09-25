@@ -1,0 +1,85 @@
+name: Repair v0.1.0-beta.1 release notes
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - milestone/repair-v0.1.0-beta.1
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-v0.1.0-beta.1-release-notes
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+
+    env:
+      TAG: v0.1.0-beta.1
+      RELEASE_NAME: Troika D Lite v0.1.0-beta.1
+      RELEASE_SHA: c1c9cab2768080489717bc2a677d38b4d66343f9
+      RELEASE_ASSET_NAME: troika-d-lite_0.1.0.beta1-1_all.deb
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Verify CI-tested repair SHA is current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          TESTED_SHA="${{ github.event.workflow_run.head_sha }}"
+          MAIN_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          test "$TESTED_SHA" = "$MAIN_SHA"
+
+      - name: Check out corrected release notes
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Verify existing published release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_SHA="$(
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}"               --jq '.object.sha'
+          )"
+          test "$TAG_SHA" = "$RELEASE_SHA"
+
+          RELEASE_JSON="$(
+            gh release view "$TAG"               --repo "$GITHUB_REPOSITORY"               --json tagName,name,isDraft,isPrerelease,assets
+          )"
+
+          test "$(jq -r '.tagName' <<<"$RELEASE_JSON")" = "$TAG"
+          test "$(jq -r '.name' <<<"$RELEASE_JSON")" = "$RELEASE_NAME"
+          test "$(jq -r '.isDraft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.isPrerelease' <<<"$RELEASE_JSON")" = "true"
+          jq -e --arg name "$RELEASE_ASSET_NAME"             '.assets | any(.name == $name)'             <<<"$RELEASE_JSON" >/dev/null
+
+      - name: Update published release notes
+        run: |
+          gh release edit "$TAG"             --repo "$GITHUB_REPOSITORY"             --title "$RELEASE_NAME"             --notes-file docs/RELEASE-NOTES-v0.1.0-beta.1.md
+
+      - name: Verify corrected published release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_JSON="$(
+            gh release view "$TAG"               --repo "$GITHUB_REPOSITORY"               --json tagName,name,isDraft,isPrerelease,url,body,assets
+          )"
+
+          test "$(jq -r '.isDraft' <<<"$RELEASE_JSON")" = "false"
+          test "$(jq -r '.isPrerelease' <<<"$RELEASE_JSON")" = "true"
+          jq -e --arg name "$RELEASE_ASSET_NAME"             '.assets | any(.name == $name)'             <<<"$RELEASE_JSON" >/dev/null
+          jq -e --arg name "$RELEASE_ASSET_NAME"             '.body | contains($name)'             <<<"$RELEASE_JSON" >/dev/null
+
+          URL="$(jq -r '.url' <<<"$RELEASE_JSON")"
+          echo "Corrected and verified: $URL"
+          echo "Release URL: $URL" >> "$GITHUB_STEP_SUMMARY"

@@ -65,10 +65,18 @@ A low-motion CPU regression caused by Lite's former live elapsed-time label was 
 
 ## Debian installation
 
+GitHub normalizes the `~` character in uploaded asset filenames to `.`.
+The Debian package version **inside the package** remains `0.1.0~beta1-1`,
+while the published GitHub asset is named:
+
+```text
+troika-d-lite_0.1.0.beta1-1_all.deb
+```
+
 After downloading the release asset:
 
 ```bash
-sudo apt install ./troika-d-lite_0.1.0~beta1-1_all.deb
+sudo apt install ./troika-d-lite_0.1.0.beta1-1_all.deb
 ```
 
 Run from the application launcher or:
