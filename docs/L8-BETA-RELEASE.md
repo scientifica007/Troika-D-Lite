@@ -2,15 +2,13 @@
 
 ## Purpose
 
-L8 prepares the first public Troika D Lite beta without silently publishing it.
-
-The candidate is:
+L8 prepared, audited, and published the first public Troika D Lite beta:
 
 ```text
 v0.1.0-beta.1
 ```
 
-No Git tag or GitHub Release is created until the final release decision is explicitly approved.
+Publication was explicitly approved after the release-candidate gate passed.
 
 ## Release identity mapping
 
@@ -171,3 +169,89 @@ Before publication it verifies that the CI-tested SHA equals the current `main` 
 7. re-reads the tag, release state, prerelease flag, and asset list.
 
 This workflow is idempotent for the same release SHA: an existing correct tag/release is verified, and the Debian asset may be refreshed from the same exact source commit.
+
+
+## Final publication record
+
+**L8 PUBLICATION: COMPLETE — 2026-09-25.**
+
+Published GitHub prerelease:
+
+```text
+Troika D Lite v0.1.0-beta.1
+```
+
+Release URL:
+
+```text
+https://github.com/scientifica007/Troika-D-Lite/releases/tag/v0.1.0-beta.1
+```
+
+Release identity:
+
+| Item | Value |
+| --- | --- |
+| Tag | `v0.1.0-beta.1` |
+| Tag commit | `c1c9cab2768080489717bc2a677d38b4d66343f9` |
+| Release ID | `396715217` |
+| Prerelease | `true` |
+| Python version | `0.1.0b1` |
+| Debian package version | `0.1.0~beta1-1` |
+| AppStream version | `0.1.0-beta.1` |
+
+Published Debian asset:
+
+```text
+troika-d-lite_0.1.0.beta1-1_all.deb
+```
+
+Asset metadata:
+
+```text
+size:   24296 bytes
+SHA256: 8dc5ddb2b9d81f76bd4d9b4015f3cfaf0ee0569fb9c89ad1ed5799d3b04bcb47
+```
+
+The package was built and verified from the exact CI-tested/tagged commit before upload.
+
+### Publication workflow outcome
+
+The initial publication workflow successfully:
+
+1. verified the CI-tested SHA matched `main`;
+2. checked out that exact SHA;
+3. passed release-metadata validation;
+4. built and verified the Debian package;
+5. passed Lintian;
+6. created tag `v0.1.0-beta.1`;
+7. created the GitHub prerelease;
+8. uploaded the Debian package.
+
+Its final verification step failed because GitHub normalized the asset filename from the Debian-style `~` form to a GitHub-safe `.` form.
+
+A follow-up repair workflow then:
+
+- verified the existing tag/release identity;
+- updated the published release notes to state the normalized asset filename;
+- verified the prerelease state and asset;
+- completed successfully.
+
+Repair workflow run:
+
+```text
+36154381018 — PASS
+```
+
+### Post-publication repository state
+
+The current `main` after the repair documentation/workflow merge is:
+
+```text
+a01abb54b14c86dc72bf182c4003e7e55f47c74d
+```
+
+CI on that commit passed.
+
+The difference from the published tag commit is limited to publication/repair workflows and release documentation. No `src/` runtime code changed after the tagged release commit.
+
+**v0.1.0-beta.1 is published and verified.**
