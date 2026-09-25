@@ -3,7 +3,7 @@ set -euo pipefail
 
 declare -A EXPECTED=(
   [pipewiresrc]="gstreamer1.0-pipewire"
-  [pulsesrc]="gstreamer1.0-pulseaudio"
+  [pulsesrc]="gstreamer1.0-plugins-good"
   [audiomixer]="gstreamer1.0-plugins-base"
   [mp4mux]="gstreamer1.0-plugins-good"
   [h264parse]="gstreamer1.0-plugins-bad"
