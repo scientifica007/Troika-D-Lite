@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_ID="io.github.scientifica007.TroikaDLite"
 PKG_NAME="troika-d-lite"
-DEB_VERSION="${TROIKA_D_LITE_DEB_VERSION:-0.1.0~alpha0-1}"
+DEB_VERSION="${TROIKA_D_LITE_DEB_VERSION:-0.1.0~beta1-1}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${1:-$ROOT_DIR/dist-deb}"
@@ -67,7 +67,7 @@ EOF
 cat > "$STAGE/changelog.Debian" <<EOF
 troika-d-lite ($DEB_VERSION) unstable; urgency=medium
 
-  * Development package for the Troika D Lite v0.1 validation cycle.
+  * First public beta package for Troika D Lite v0.1.
 
  -- Scientifica <scientifica007@users.noreply.github.com>  Fri, 25 Sep 2026 00:00:00 +0000
 EOF

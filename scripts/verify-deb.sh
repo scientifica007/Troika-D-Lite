@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_ID="io.github.scientifica007.TroikaDLite"
 PKG_NAME="troika-d-lite"
+EXPECTED_VERSION="${TROIKA_D_LITE_EXPECTED_DEB_VERSION:-0.1.0~beta1-1}"
 
 if [[ "$#" -ne 1 ]]; then
   echo "Usage: $0 /path/to/troika-d-lite_VERSION_all.deb" >&2
@@ -17,10 +18,15 @@ fi
 
 package="$(dpkg-deb --field "$DEB_PATH" Package)"
 arch="$(dpkg-deb --field "$DEB_PATH" Architecture)"
+version="$(dpkg-deb --field "$DEB_PATH" Version)"
 depends="$(dpkg-deb --field "$DEB_PATH" Depends)"
 
 [[ "$package" == "$PKG_NAME" ]]
 [[ "$arch" == "all" ]]
+[[ "$version" == "$EXPECTED_VERSION" ]] || {
+  echo "Unexpected Debian version: expected=$EXPECTED_VERSION actual=$version" >&2
+  exit 1
+}
 
 required_depends=(
   python3

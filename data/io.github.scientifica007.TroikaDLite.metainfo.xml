@@ -21,5 +21,12 @@
   <url type="homepage">
     https://github.com/scientifica007/Troika-D-Lite
   </url>
+  <releases>
+    <release version="0.1.0-beta.1" date="2026-09-25" type="development">
+      <description>
+        <p>First public beta of the minimal full-screen recorder.</p>
+      </description>
+    </release>
+  </releases>
   <content_rating type="oars-1.1"/>
 </component>

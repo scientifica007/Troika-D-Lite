@@ -40,6 +40,10 @@ jobs:
             appstream \
             lintian
 
+      - name: Verify beta release metadata alignment
+        run: |
+          /usr/bin/python3 scripts/verify-release-metadata.py
+
       - name: Parse project metadata
         run: |
           /usr/bin/python3 - <<'PY'
@@ -47,7 +51,7 @@ jobs:
           with open("pyproject.toml", "rb") as handle:
               data = tomllib.load(handle)
           assert data["project"]["name"] == "troika-d-lite"
-          assert data["project"]["version"] == "0.1.0a0"
+          assert data["project"]["version"] == "0.1.0b1"
           print("pyproject.toml: PASS")
           PY
 
@@ -88,8 +92,8 @@ jobs:
           /usr/bin/python3 -m build --no-isolation
           /usr/bin/python3 - <<'PY'
           from pathlib import Path
-          wheels = list(Path("dist").glob("troika_d_lite-0.1.0a0-*.whl"))
-          sdists = list(Path("dist").glob("troika-d-lite-0.1.0a0.tar.gz"))
+          wheels = list(Path("dist").glob("troika_d_lite-0.1.0b1-*.whl"))
+          sdists = list(Path("dist").glob("troika-d-lite-0.1.0b1.tar.gz"))
           if len(wheels) != 1 or len(sdists) != 1:
               raise SystemExit(
                   f"Unexpected release artifacts: wheels={wheels}, sdists={sdists}"
@@ -121,7 +125,7 @@ jobs:
       - name: Upload Debian package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: troika-d-lite-deb-alpha
+          name: troika-d-lite-v0.1.0-beta.1-deb
           path: dist-deb/*.deb
           if-no-files-found: error
           retention-days: 30
