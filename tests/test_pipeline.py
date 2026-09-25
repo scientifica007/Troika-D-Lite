@@ -3,6 +3,7 @@ from pathlib import Path
 
 from troika_d_lite.pipeline import (
     AUDIO_BITRATE_BPS,
+    AUDIO_MIXER_LATENCY_MS,
     AUDIO_RATE_HZ,
     ROBUST_MP4_MAX_DURATION_NS,
     ROBUST_MP4_UPDATE_PERIOD_NS,
@@ -81,7 +82,7 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
 
-    def test_microphone_path_remains_field_baseline(self):
+    def test_microphone_only_path_remains_direct(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
@@ -102,7 +103,7 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertNotIn("audiomixer", plan.description)
 
-    def test_system_audio_path_uses_monitor_source_and_aac(self):
+    def test_system_audio_only_path_remains_direct(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
@@ -118,23 +119,31 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
         self.assertIn("system_capture_q", plan.description)
-        self.assertIn("provide-clock=false", plan.description)
-        self.assertIn("slave-method=resample", plan.description)
-        self.assertIn(
-            f"avenc_aac bitrate={AUDIO_BITRATE_BPS}",
-            plan.description,
-        )
         self.assertNotIn("audiomixer", plan.description)
 
-    def test_l3_rejects_dual_audio_until_l4(self):
-        with self.assertRaises(ValueError):
-            build_video_pipeline(
-                VideoStream(fd=9, node_id=77),
-                30,
-                Path("/tmp/a.mp4"),
-                microphone_device="mic.test",
-                system_audio_device="sink.monitor",
-            )
+    def test_dual_audio_uses_one_mixer_and_one_aac_encoder(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+            microphone_device="mic.test",
+            system_audio_device="sink.monitor",
+        )
+        self.assertIn("pulsesrc name=mic_src", plan.description)
+        self.assertIn(
+            "pulsesrc name=system_audio_src",
+            plan.description,
+        )
+        self.assertIn("mic_capture_q", plan.description)
+        self.assertIn("system_capture_q", plan.description)
+        self.assertIn(
+            f"audiomixer name=amix latency={AUDIO_MIXER_LATENCY_MS}",
+            plan.description,
+        )
+        self.assertEqual(plan.description.count("audiomixer"), 1)
+        self.assertEqual(plan.description.count("avenc_aac"), 1)
+        self.assertEqual(plan.description.count("audio_mux_q"), 1)
+        self.assertGreaterEqual(plan.description.count("! amix."), 2)
 
     def test_video_only_path_contains_no_audio_elements(self):
         plan = build_video_pipeline(
@@ -144,12 +153,14 @@ class PipelineTests(unittest.TestCase):
         )
         self.assertNotIn("pulsesrc", plan.description)
         self.assertNotIn("avenc_aac", plan.description)
+        self.assertNotIn("audiomixer", plan.description)
 
-    def test_l3_contains_no_out_of_scope_media_paths(self):
+    def test_l4_contains_no_out_of_scope_media_paths(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),
             30,
             Path("/tmp/a.mp4"),
+            microphone_device="mic.test",
             system_audio_device="sink.monitor",
         )
         for forbidden in (
@@ -157,7 +168,6 @@ class PipelineTests(unittest.TestCase):
             "v4l2src",
             "compositor",
             "videocrop",
-            "audiomixer",
             "vp8enc",
             "webmmux",
         ):

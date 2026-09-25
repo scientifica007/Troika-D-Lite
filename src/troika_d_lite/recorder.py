@@ -9,6 +9,7 @@ from gi.repository import GLib, Gst
 
 from .pipeline import (
     REQUIRED_AUDIO_GST_ELEMENTS,
+    REQUIRED_DUAL_AUDIO_GST_ELEMENTS,
     REQUIRED_VIDEO_GST_ELEMENTS,
     build_video_pipeline,
 )
@@ -46,6 +47,7 @@ class Recorder:
         self.portal_closed_subscription = 0
 
         self.stop_timeout_id = 0
+        self.starting = False
         self.stopping = False
         self.active_fps: Optional[int] = None
         self.active_microphone = False
@@ -55,7 +57,19 @@ class Recorder:
     def active(self) -> bool:
         return self.pipeline is not None
 
-    def _require_runtime(self, include_audio: bool) -> None:
+    @property
+    def busy(self) -> bool:
+        return (
+            self.starting
+            or self.pipeline is not None
+            or self.portal_session is not None
+        )
+
+    def _require_runtime(
+        self,
+        include_audio: bool,
+        include_dual_audio: bool,
+    ) -> None:
         if not is_wayland_session():
             raise RuntimeError(
                 "Troika D Lite currently supports Ubuntu/Wayland only"
@@ -64,6 +78,8 @@ class Recorder:
         required = list(REQUIRED_VIDEO_GST_ELEMENTS)
         if include_audio:
             required.extend(REQUIRED_AUDIO_GST_ELEMENTS)
+        if include_dual_audio:
+            required.extend(REQUIRED_DUAL_AUDIO_GST_ELEMENTS)
 
         missing = [
             name
@@ -83,20 +99,18 @@ class Recorder:
         microphone_device: Optional[str] = None,
         system_audio_device: Optional[str] = None,
     ) -> None:
-        if self.pipeline is not None or self.portal_session is not None:
+        if self.busy:
             raise RuntimeError("Recorder is already busy")
         if fps not in (15, 30):
             raise ValueError("FPS must be 15 or 30")
-        if microphone_device is not None and system_audio_device is not None:
-            raise ValueError(
-                "L3 supports microphone or system audio, not both"
-            )
 
         include_microphone = microphone_device is not None
         include_system_audio = system_audio_device is not None
-        self._require_runtime(
-            include_microphone or include_system_audio
-        )
+        include_audio = include_microphone or include_system_audio
+        include_dual_audio = include_microphone and include_system_audio
+
+        self._require_runtime(include_audio, include_dual_audio)
+        self.starting = True
         self.stopping = False
 
         try:
@@ -140,7 +154,9 @@ class Recorder:
 
             self.state_cb(True)
             audio_label = ""
-            if include_microphone:
+            if include_dual_audio:
+                audio_label = " — microphone + system audio"
+            elif include_microphone:
                 audio_label = " — microphone"
             elif include_system_audio:
                 audio_label = " — system audio"
@@ -150,6 +166,8 @@ class Recorder:
         except Exception:
             self._force_null_and_cleanup()
             raise
+        finally:
+            self.starting = False
 
     def stop(self) -> None:
         pipeline = self.pipeline
@@ -342,6 +360,7 @@ class Recorder:
             self.pipewire_fd = None
 
         self.portal = None
+        self.starting = False
         self.stopping = False
         self.active_fps = None
         self.active_microphone = False

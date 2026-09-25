@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from troika_d_lite.recorder import Recorder
@@ -42,6 +43,21 @@ class _Pipeline:
         return True
 
 
+class RecorderStartGuardTests(unittest.TestCase):
+    def test_start_rejects_reentry_while_portal_request_is_pending(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder.starting = True
+
+        with self.assertRaisesRegex(RuntimeError, "already busy"):
+            recorder.start(30, Path("/tmp/a.mp4"))
+
+    def test_busy_includes_starting_state(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        self.assertFalse(recorder.busy)
+        recorder.starting = True
+        self.assertTrue(recorder.busy)
+
+
 class RecorderStopTests(unittest.TestCase):
     @patch(
         "troika_d_lite.recorder.GLib.timeout_add_seconds",
@@ -71,6 +87,23 @@ class RecorderStopTests(unittest.TestCase):
         recorder.stop()
 
         self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.system.pad.events, 1)
+        self.assertEqual(pipeline.fallback_events, 0)
+        self.assertEqual(recorder.stop_timeout_id, 123)
+
+    @patch(
+        "troika_d_lite.recorder.GLib.timeout_add_seconds",
+        return_value=123,
+    )
+    def test_stop_pushes_eos_to_all_dual_audio_sources(self, _timeout):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        pipeline = _Pipeline(include_mic=True, include_system=True)
+        recorder.pipeline = pipeline
+
+        recorder.stop()
+
+        self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.mic.pad.events, 1)
         self.assertEqual(pipeline.system.pad.events, 1)
         self.assertEqual(pipeline.fallback_events, 0)
         self.assertEqual(recorder.stop_timeout_id, 123)
