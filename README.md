@@ -27,7 +27,17 @@ Validated recording states:
 
 L6 native Debian/Ubuntu packaging and dependency auditing passed automated and human installation checks. L7 performance and final field acceptance also passed.
 
-The current release candidate is **v0.1.0-beta.1**. L8 prepares and audits the release metadata and artifacts; no tag or GitHub Release is created until the release decision is explicitly approved.
+The first public beta, **v0.1.0-beta.1**, is published as a GitHub prerelease.
+
+Release page:
+
+https://github.com/scientifica007/Troika-D-Lite/releases/tag/v0.1.0-beta.1
+
+Published Debian asset:
+
+`troika-d-lite_0.1.0.beta1-1_all.deb`
+
+The Debian package version stored inside the package is `0.1.0~beta1-1`; GitHub normalizes the `~` character to `.` in the uploaded asset filename.
 
 ## Product boundary
 
