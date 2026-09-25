@@ -129,6 +129,7 @@ jobs:
       - name: Benchmark tooling smoke test
         run: |
           /usr/bin/python3 scripts/benchmark_session.py --help >/dev/null
+          /usr/bin/python3 scripts/run_lite_matrix.py --help >/dev/null
           /usr/bin/python3 scripts/summarize_benchmarks.py --help >/dev/null
 
       - name: Compile Python sources

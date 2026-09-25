@@ -84,6 +84,18 @@ For consistency:
 - use the same local playback plus ordinary desktop motion for dual-audio cases;
 - keep the microphone, default output, power state, monitor resolution, and desktop session unchanged.
 
+The preferred field runner is:
+
+```bash
+cd ~/Troika-D-Lite
+
+python3 scripts/run_lite_matrix.py
+```
+
+It runs the eight cases sequentially with a 10-second idle sample and 30-second recording sample. Before every case it prints the required FPS/audio state and waits for Enter. It is resume-safe: a case that already has a successful EOS JSON under `benchmark-results/lite-matrix/` is skipped unless `--rerun-completed` is supplied.
+
+Do not configure the application during the idle measurement. Wait until the per-session benchmark prints its configuration prompt, then set the stated controls and press Start/Share.
+
 ### Layer 2 — controlled repeated comparison with Troika D
 
 Use two representative scenarios and run each **three times per application**.
@@ -195,6 +207,25 @@ python3 scripts/summarize_benchmarks.py \
 The command fails if any of the eight required Lite FPS/audio combinations is missing. The table reports medians grouped by application and scenario.
 
 Raw JSON/log files under `benchmark-results/` remain local because they contain machine-specific paths and diagnostic detail. The repository should receive the aggregate numeric table, benchmark conditions, interpretation, and final field conclusion in the L7 field-test document.
+
+## Benchmark harness field smoke
+
+The benchmark harness itself passed a target-machine smoke test on 2026-09-25 using 15 FPS, microphone OFF, system audio OFF, low-motion workload.
+
+Observed smoke values:
+
+| Metric | Value |
+| --- | ---: |
+| Startup proxy | 327.958 ms |
+| Idle CPU mean | 10.586% |
+| Idle RSS mean | 64.472 MiB |
+| Recording CPU mean | 61.081% |
+| Recording RSS mean | 112.126 MiB |
+| Recording RSS peak | 114.656 MiB |
+| Finalization | 575.307 ms |
+| Finalization outcome | EOS |
+
+No pipeline fallback or finalization timeout was reported. This smoke result validates the measurement workflow; it is not used as one of the formal eight matrix cases.
 
 ## Interpretation rules
 

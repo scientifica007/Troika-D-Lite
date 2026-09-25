@@ -24,6 +24,10 @@ summary = load(
     "summarize_benchmarks",
     ROOT / "scripts" / "summarize_benchmarks.py",
 )
+matrix_runner = load(
+    "run_lite_matrix",
+    ROOT / "scripts" / "run_lite_matrix.py",
+)
 
 
 class BenchmarkMathTests(unittest.TestCase):
@@ -49,6 +53,23 @@ class BenchmarkMathTests(unittest.TestCase):
         self.assertEqual(result["sample_count"], 2)
         self.assertEqual(result["rss_mean_mib"], 1.5)
         self.assertEqual(result["rss_peak_mib"], 2.0)
+
+
+class MatrixRunnerTests(unittest.TestCase):
+    def test_runner_declares_exactly_the_eight_required_cases(self):
+        observed = {
+            (fps, bool(mic), bool(system))
+            for _name, fps, mic, system, _workload
+            in matrix_runner.SCENARIOS
+        }
+        expected = {
+            (fps, mic, system)
+            for fps in (15, 30)
+            for mic in (False, True)
+            for system in (False, True)
+        }
+        self.assertEqual(len(matrix_runner.SCENARIOS), 8)
+        self.assertEqual(observed, expected)
 
 
 class BenchmarkSummaryTests(unittest.TestCase):
