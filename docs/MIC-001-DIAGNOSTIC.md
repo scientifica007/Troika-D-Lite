@@ -91,3 +91,64 @@ Interpretation:
   the screen+audio pipeline clock relationship becomes the primary suspect.
 
 No fix should be selected before this split is known.
+
+
+## Field isolation result — 2026-09-25
+
+The first diagnostic run reproduced the MP4 microphone dropout.
+
+The in-app instrumentation showed:
+
+- selected pipeline clock: `pipewireclock0`;
+- mic source actual buffer time: 500 ms;
+- mic source actual latency: 20 ms;
+- `provide-clock=false`;
+- `slave-method=resample`;
+- repeated `Can't record audio fast enough` warnings;
+- source-boundary timestamp gaps of 25.160 s, 620 ms, 7.000 s, and 640 ms;
+- final maximum microphone gap: 25.160 s.
+
+Both standalone WAV captures were clean:
+
+1. Lite-style explicit Pulse timing/clock settings;
+2. default Pulse settings.
+
+The Lite-style standalone pipeline selected `GstSystemClock`; the default
+standalone pipeline selected `GstPulseSrcClock`.
+
+The original Troika D application also reproduces the microphone-dropout
+symptom, consistent with the shared screen/audio clock architecture.
+
+### Root-cause hypothesis
+
+The evidence rules out a physical microphone-specific failure and makes
+the explicit Lite Pulse buffer/latency properties insufficient to explain
+the defect.
+
+The failing condition is the combined screen+microphone pipeline selecting
+the PipeWire video clock while `pulsesrc` is forced to slave/resample to
+that clock.
+
+## Fix candidate
+
+When microphone capture is enabled, force the top-level GStreamer pipeline
+to use `GstSystemClock` before PLAYING.
+
+Scope intentionally unchanged:
+
+- Pulse buffer time remains 500 ms;
+- Pulse latency remains 20 ms;
+- `slave-method=resample` remains;
+- audio queues remain 3 s;
+- AAC encoder remains unchanged;
+- video pipeline remains unchanged;
+- system-audio-only and video-only continue using automatic clock selection.
+
+The candidate must not merge until field testing confirms:
+
+- the runtime log reports `Pipeline clock: GstSystemClock`;
+- long microphone gaps disappear;
+- `Can't record audio fast enough` does not recur;
+- recorded microphone audio is continuous;
+- video remains acceptable;
+- dual-audio remains synchronized.

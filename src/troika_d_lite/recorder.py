@@ -63,6 +63,7 @@ class Recorder:
         self.mic_max_gap_ns = 0
         self.mic_last_end_ns: Optional[int] = None
         self.audio_runtime_logged = False
+        self.forced_system_clock: Optional[Gst.Clock] = None
 
     @property
     def active(self) -> bool:
@@ -149,6 +150,7 @@ class Recorder:
             self.active_fps = fps
             self.active_microphone = include_microphone
             self.active_system_audio = include_system_audio
+            self._configure_capture_clock()
             self._reset_mic_diagnostics()
             self._install_mic_diagnostics()
 
@@ -181,6 +183,20 @@ class Recorder:
             raise
         finally:
             self.starting = False
+
+    def _configure_capture_clock(self) -> None:
+        pipeline = self.pipeline
+        self.forced_system_clock = None
+        if pipeline is None or not self.active_microphone:
+            return
+
+        clock = Gst.SystemClock.obtain()
+        pipeline.use_clock(clock)
+        self.forced_system_clock = clock
+        print(
+            "MIC clock policy: forced-system-clock",
+            flush=True,
+        )
 
     def _reset_mic_diagnostics(self) -> None:
         self.mic_buffer_count = 0
@@ -604,6 +620,7 @@ class Recorder:
             self.pipewire_fd = None
 
         self.portal = None
+        self.forced_system_clock = None
         self.starting = False
         self.stopping = False
         self.active_fps = None
