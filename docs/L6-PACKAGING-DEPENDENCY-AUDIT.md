@@ -107,7 +107,9 @@ L6 CI must pass:
 
 ## Human acceptance gate
 
-Before L6 merge, install the generated package on the Ubuntu 24.04 / Wayland field machine and verify:
+**PASS — 2026-09-25.**
+
+The generated package was installed on the Ubuntu 24.04 / Wayland field machine and verified:
 
 1. package installs without manual copying;
 2. `troika-d-lite` is available as a command;
@@ -132,3 +134,16 @@ L6 does not:
 - perform the final performance benchmark.
 
 Those belong to later milestones or require a separate product decision.
+
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The native `.deb` was built from commit `4bedf353a32d203c67fea06c783436b0b9cfb2d1`, installed with APT, launched from GNOME with its packaged icon, used for a normal 30 FPS system-audio recording, and removed cleanly.
+
+A transient post-remove `command -v` result was traced to Bash command hashing. Direct filesystem checks confirmed `/usr/bin/troika-d-lite` was absent, and `hash -r` cleared the stale shell lookup.
+
+Detailed evidence:
+
+- `docs/FIELD-TEST-L6-2026-09-25.md`
