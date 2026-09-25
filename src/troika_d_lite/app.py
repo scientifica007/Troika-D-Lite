@@ -28,10 +28,6 @@ _CSS = b"""
 #section-title {
   font-weight: 600;
 }
-#recording-timer {
-  font-size: 28px;
-  font-weight: 600;
-}
 #recording-state {
   font-weight: 600;
 }
@@ -116,9 +112,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
         self.system_audio_sources = list_system_audio_sources()
         self._audio_signature = self._make_audio_signature()
 
-        self._timer_id = 0
         self._device_poll_id = 0
-        self._started_us = 0
         self._close_after_stop = False
         self._starting = False
         self._last_output_path: Optional[Path] = None
@@ -238,10 +232,6 @@ class RecorderWindow(Gtk.ApplicationWindow):
         state = Gtk.Label(label="Recording")
         state.set_name("recording-state")
         recording.pack_start(state, False, False, 8)
-
-        self.timer_label = Gtk.Label(label="00:00:00")
-        self.timer_label.set_name("recording-timer")
-        recording.pack_start(self.timer_label, False, False, 0)
 
         self.recording_summary = Gtk.Label(label="")
         self.recording_summary.get_style_context().add_class("dim-label")
@@ -417,18 +407,8 @@ class RecorderWindow(Gtk.ApplicationWindow):
                 )
             )
             self.stack.set_visible_child_name("recording")
-            self._started_us = GLib.get_monotonic_time()
-            self._update_timer()
-            if not self._timer_id:
-                self._timer_id = GLib.timeout_add_seconds(
-                    1,
-                    self._update_timer,
-                )
             return
 
-        if self._timer_id:
-            GLib.source_remove(self._timer_id)
-            self._timer_id = 0
         self.stack.set_visible_child_name("idle")
         self._refresh_audio_devices()
 
@@ -436,22 +416,6 @@ class RecorderWindow(Gtk.ApplicationWindow):
             self._close_after_stop = False
             self._remove_device_poll()
             GLib.idle_add(self.destroy)
-
-    def _update_timer(self) -> bool:
-        if not self.recorder.active:
-            return False
-
-        elapsed = max(
-            0,
-            (GLib.get_monotonic_time() - self._started_us)
-            // 1_000_000,
-        )
-        hours, remainder = divmod(elapsed, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        self.timer_label.set_text(
-            f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        )
-        return True
 
     def _remove_device_poll(self) -> None:
         if self._device_poll_id:

@@ -28,7 +28,6 @@ Product-level refinements:
 - theme-native suggested Start action;
 - theme-native destructive Stop action;
 - dedicated recording state;
-- larger elapsed-time display;
 - recording summary showing FPS and active audio mode;
 - final status shows the actual saved path;
 - initial status states the default output directory;
@@ -124,3 +123,20 @@ Because L5 does not modify the media pipeline or recorder lifecycle, the previou
 Detailed evidence:
 
 - `docs/FIELD-TEST-L5-2026-09-25.md`
+
+
+## L7 performance correction
+
+The initial L5 recording view included a live elapsed-time label updated once per second.
+
+L7 field benchmarking established that, during Full Screen capture on the target Wayland machine, keeping that dynamic recorder window visible materially increased real compositor/PipeWire frame activity and process CPU in a nominally low-motion workload.
+
+A focused hidden-window probe reduced Lite recording CPU from the previous controlled median of 41.685% to 17.209%, essentially matching the Troika D comparison median of 17.139%.
+
+The live elapsed-time label was therefore removed in L7. The recording view retains:
+
+- the static **Recording** state;
+- FPS/audio-mode summary;
+- **Stop Recording**.
+
+This is a deliberate low-resource product correction, not a feature regression. Elapsed-time display was not part of the v0.1 product contract.

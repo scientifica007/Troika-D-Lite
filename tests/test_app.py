@@ -1,9 +1,11 @@
+import inspect
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
 
 from troika_d_lite.app import (
+    RecorderWindow,
     audio_mode_label,
     collision_safe_output_path,
     display_output_path,
@@ -43,6 +45,20 @@ class OutputPathTests(unittest.TestCase):
             display_output_path(path, home=home),
             "~/Videos/recording.mp4",
         )
+
+
+class RecordingUiPerformanceContractTests(unittest.TestCase):
+    def test_recording_view_has_no_live_elapsed_timer(self):
+        self.assertFalse(hasattr(RecorderWindow, "_update_timer"))
+
+        build_source = inspect.getsource(
+            RecorderWindow._build_recording_ui
+        )
+        state_source = inspect.getsource(
+            RecorderWindow._on_recording_state
+        )
+        self.assertNotIn("timer_label", build_source)
+        self.assertNotIn("timeout_add_seconds", state_source)
 
 
 class ProductLabelTests(unittest.TestCase):

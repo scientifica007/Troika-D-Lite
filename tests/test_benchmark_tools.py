@@ -1,0 +1,166 @@
+import importlib.util
+import sys
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+benchmark = load(
+    "benchmark_session",
+    ROOT / "scripts" / "benchmark_session.py",
+)
+summary = load(
+    "summarize_benchmarks",
+    ROOT / "scripts" / "summarize_benchmarks.py",
+)
+matrix_runner = load(
+    "run_lite_matrix",
+    ROOT / "scripts" / "run_lite_matrix.py",
+)
+comparison_runner = load(
+    "run_controlled_comparison",
+    ROOT / "scripts" / "run_controlled_comparison.py",
+)
+
+
+class BenchmarkMathTests(unittest.TestCase):
+    def test_cpu_percent_uses_interval_delta(self):
+        a = benchmark.ProcSample(at=10.0, cpu_ticks=100, rss_kib=1000)
+        b = benchmark.ProcSample(
+            at=11.0,
+            cpu_ticks=100 + benchmark.CLK_TCK,
+            rss_kib=2000,
+        )
+        self.assertAlmostEqual(benchmark.cpu_percent(a, b), 100.0)
+
+    def test_sample_summary_uses_mib_and_peak(self):
+        samples = [
+            benchmark.ProcSample(1.0, 0, 1024),
+            benchmark.ProcSample(
+                2.0,
+                benchmark.CLK_TCK // 2,
+                2048,
+            ),
+        ]
+        result = benchmark.summarize_samples(samples)
+        self.assertEqual(result["sample_count"], 2)
+        self.assertEqual(result["rss_mean_mib"], 1.5)
+        self.assertEqual(result["rss_peak_mib"], 2.0)
+
+
+class MatrixRunnerTests(unittest.TestCase):
+    def test_runner_declares_exactly_the_eight_required_cases(self):
+        observed = {
+            (fps, bool(mic), bool(system))
+            for _name, fps, mic, system, _workload
+            in matrix_runner.SCENARIOS
+        }
+        expected = {
+            (fps, mic, system)
+            for fps in (15, 30)
+            for mic in (False, True)
+            for system in (False, True)
+        }
+        self.assertEqual(len(matrix_runner.SCENARIOS), 8)
+        self.assertEqual(observed, expected)
+
+
+class ComparisonRunnerTests(unittest.TestCase):
+    def test_schedule_has_three_runs_per_app_and_scenario(self):
+        from collections import Counter
+
+        self.assertEqual(
+            Counter(comparison_runner.SCHEDULE),
+            {
+                ("A-15-video-low", "lite"): 3,
+                ("A-15-video-low", "troika-d"): 3,
+                ("B-30-dual-high", "lite"): 3,
+                ("B-30-dual-high", "troika-d"): 3,
+            },
+        )
+
+
+class BenchmarkSummaryTests(unittest.TestCase):
+    def test_matrix_validator_detects_and_accepts_all_eight_cases(self):
+        payloads = []
+        for fps in (15, 30):
+            for mic in (False, True):
+                for system in (False, True):
+                    payloads.append(
+                        {
+                            "app": "lite",
+                            "fps": fps,
+                            "microphone": mic,
+                            "system_audio": system,
+                        }
+                    )
+        self.assertEqual(summary.validate_lite_matrix(payloads), set())
+
+        payloads.pop()
+        self.assertEqual(len(summary.validate_lite_matrix(payloads)), 1)
+
+    def test_controlled_comparison_validator_requires_three_each(self):
+        payloads = []
+        for scenario in ("A-15-video-low", "B-30-dual-high"):
+            for app in ("lite", "troika-d"):
+                for _ in range(3):
+                    payloads.append(
+                        {
+                            "scenario": scenario,
+                            "app": app,
+                            "finalization_outcome": "eos",
+                        }
+                    )
+        self.assertEqual(
+            summary.validate_controlled_comparison(payloads),
+            {},
+        )
+        payloads.pop()
+        self.assertEqual(
+            summary.validate_controlled_comparison(payloads),
+            {("B-30-dual-high", "troika-d"): 1},
+        )
+
+    def test_aggregate_uses_median_per_app_and_scenario(self):
+        payloads = []
+        for startup in (100, 200, 300):
+            payloads.append(
+                {
+                    "scenario": "s1",
+                    "app": "lite",
+                    "fps": 15,
+                    "microphone": False,
+                    "system_audio": False,
+                    "startup_proxy_ms": startup,
+                    "idle": {
+                        "cpu_mean_pct": 1,
+                        "rss_mean_mib": 10,
+                    },
+                    "recording": {
+                        "cpu_mean_pct": 20,
+                        "rss_mean_mib": 30,
+                        "rss_peak_mib": 40,
+                    },
+                    "finalization_ms": 500,
+                    "finalization_outcome": "eos",
+                }
+            )
+        rows = summary.aggregate(payloads)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["runs"], 3)
+        self.assertEqual(rows[0]["startup ms"], 200.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
