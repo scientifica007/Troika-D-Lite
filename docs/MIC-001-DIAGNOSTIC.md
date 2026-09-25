@@ -272,3 +272,45 @@ Field acceptance for MIC-001 requires:
 - acceptable video motion and A/V sync;
 - clean EOS;
 - CPU impact measured after correctness is established.
+
+
+## Heartbeat Stop regression — field result
+
+The first heartbeat field test resolved the microphone dropout:
+
+```text
+Mic timing stats [finalize-timeout] buffers=7518 gaps=0 max-gap-ms=0.000 discont=1 invalid-pts=0
+```
+
+The user confirmed that microphone audio was continuous and clear.
+
+Long raw PipeWire screen gaps remained, including a maximum gap of
+34.184 s, but no microphone backpressure returned. This validates the
+heartbeat concept for A/V continuity.
+
+However, Stop regressed:
+
+- EOS was pushed to `screen_src` and `mic_src`;
+- microphone audio stopped immediately;
+- `imagefreeze` continued emitting the held video frame;
+- the mux did not reach EOS;
+- the recorder closed only through the 12-second
+  `finalize-timeout`.
+
+### Stop fix candidate
+
+When `video_hold` exists, the recorder now terminates the downstream
+video heartbeat by pushing EOS on `video_hold:src` instead of
+`screen_src:src`.
+
+Active microphone/system-audio source pads still receive EOS exactly as
+before.
+
+When no `video_hold` exists (video-only recording), Stop continues to
+push EOS to `screen_src:src`.
+
+Field acceptance now requires both:
+
+1. continuous audio with no MIC GAP/backpressure;
+2. normal EOS finalization without `finalize-timeout`, with audio and
+   video ending together.

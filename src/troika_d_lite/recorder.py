@@ -17,7 +17,7 @@ from .portal import PortalClient
 
 
 FINALIZE_TIMEOUT_SECONDS = 12
-SOURCE_NAMES = ("screen_src", "mic_src", "system_audio_src")
+AUDIO_SOURCE_NAMES = ("mic_src", "system_audio_src")
 MIC_GAP_WARN_NS = 100_000_000
 SCREEN_GAP_WARN_NS = 1_000_000_000
 
@@ -486,7 +486,16 @@ class Recorder:
         self.status_cb("Finalizing recording…")
 
         source_results = {}
-        for name in SOURCE_NAMES:
+        video_stop_name = (
+            "video_hold"
+            if pipeline.get_by_name("video_hold") is not None
+            else "screen_src"
+        )
+        stop_source_names = (
+            video_stop_name,
+            *AUDIO_SOURCE_NAMES,
+        )
+        for name in stop_source_names:
             source = pipeline.get_by_name(name)
             if source is None:
                 continue
