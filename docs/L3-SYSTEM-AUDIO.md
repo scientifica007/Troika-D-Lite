@@ -86,7 +86,9 @@ L3 does not add:
 
 ## Human acceptance gate
 
-L3 is not accepted until Ubuntu 24.04 / Wayland field testing confirms:
+**PASS — 2026-09-25.**
+
+Ubuntu 24.04 / Wayland field testing confirmed:
 
 1. video-only behavior remains good;
 2. microphone recording remains good;
@@ -100,3 +102,18 @@ L3 is not accepted until Ubuntu 24.04 / Wayland field testing confirms:
 10. no unacceptable video regression, audio drift, broken audio, or finalization timeout is observed.
 
 L3 must remain a single-audio-source milestone. Dual-source mixing is validated separately in L4.
+
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The human L3 field gate passed against runtime commit `ea8da18556bd6b787c74a0ee52ee7cefe36eb01e`.
+
+One video-only 15 FPS run exercised the bounded finalization timeout path. A focused repeatability check then completed five consecutive normal 15 FPS Stop operations without reproducing the timeout, plus a successful external Portal Stop and one additional normal run.
+
+The event is retained as isolated recovery evidence, not discarded.
+
+Detailed evidence is recorded in:
+
+- `docs/FIELD-TEST-L3-2026-09-25.md`
