@@ -163,3 +163,48 @@ This is a strong hypothesis, not yet a proven root cause.
 **PERFORMANCE INTERPRETATION: OPEN — focused low-motion UI-visibility probe required.**
 
 No pipeline change is justified. The next test isolates whether Lite's visible dynamic recording UI is responsible for the Scenario A CPU gap.
+
+
+## Focused hidden-UI probe
+
+A focused Lite-only probe repeated Scenario A while the dynamic Troika D Lite recording window was not visible on the captured active workspace for the measured interval.
+
+Observed:
+
+| Metric | Hidden-UI probe |
+| --- | ---: |
+| Startup proxy | 328.528 ms |
+| Idle CPU mean | 5.489% |
+| Idle RSS mean | 65.664 MiB |
+| Recording CPU mean | 17.209% |
+| Recording RSS mean | 112.600 MiB |
+| Recording RSS peak | 112.867 MiB |
+| Finalization | 3041.032 ms |
+| Outcome | EOS |
+| Videorate | in=82, out=938, drop=26, duplicate=882 |
+
+The CPU result is decisive for the performance question:
+
+- previous Lite Scenario A controlled median with visible live timer: 41.685%;
+- hidden-UI probe: 17.209%;
+- Troika D Scenario A controlled median: 17.139%.
+
+The hidden-UI Lite result is within approximately 0.4% relative of Troika D's CPU median.
+
+This strongly confirms that the Scenario A CPU gap was caused by self-generated visible compositor activity from Lite's once-per-second elapsed-time UI, not by the accepted GStreamer Full Screen pipeline.
+
+The hidden probe's 3.041 s finalization is retained as a one-run timing outlier. It still ended through normal EOS and does not overturn the broader finalization evidence.
+
+## L7 performance correction
+
+The live elapsed-time label is removed from the recording view.
+
+The static Recording state, FPS/audio summary, and Stop button remain.
+
+Reason:
+
+- elapsed time is not a v0.1 product requirement;
+- the field probe demonstrates a material low-motion CPU cost when the changing label is visible inside a Full Screen capture;
+- removing the dynamic label directly addresses the proven cause without modifying the media pipeline, codecs, buffering, or Portal behavior.
+
+A three-run visible-window Scenario A recheck is required after this change before the performance finding can be closed.
