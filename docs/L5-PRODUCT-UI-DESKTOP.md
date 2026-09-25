@@ -76,7 +76,9 @@ CI validates:
 
 ## Human acceptance gate
 
-L5 requires a focused Ubuntu 24.04 / Wayland check:
+**PASS — 2026-09-25.**
+
+The focused Ubuntu 24.04 / Wayland check covered:
 
 1. idle UI is compact, readable, and not visually cluttered;
 2. microphone and system-audio controls behave as before;
@@ -107,3 +109,18 @@ L5 does not add:
 - Debian packaging.
 
 Those items either remain outside v0.1 or belong to a later explicitly approved milestone.
+
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The focused product/UI gate passed against commit `6107dc335bd88970fc6374edeb9b81dd8ebde0d3`.
+
+The human assessment described the interface as simple, practical, and visually good. Idle, Portal, Recording, and Saved states were exercised, and single-instance activation was confirmed from a second terminal invocation.
+
+Because L5 does not modify the media pipeline or recorder lifecycle, the previously accepted L4 media matrix remains the media baseline rather than being duplicated as a new L5 matrix.
+
+Detailed evidence:
+
+- `docs/FIELD-TEST-L5-2026-09-25.md`
