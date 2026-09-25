@@ -107,7 +107,9 @@ CI must confirm at least:
 
 ## Human acceptance gate
 
-L4 is not accepted until Ubuntu 24.04 / Wayland testing confirms the full eight-case matrix:
+**PASS — 2026-09-25.**
+
+Ubuntu 24.04 / Wayland testing confirmed the full eight-case matrix:
 
 | FPS | Microphone | System audio |
 | --- | --- | --- |
@@ -163,3 +165,20 @@ The text-rendering artifact is not attributed to the application yet because it 
 Human testing also reported a very brief, subtle audio interruption on some workspace switches, especially when the machine was under higher load.
 
 No GStreamer error, EOS fallback, or finalization timeout accompanied the reported cases. This is retained as performance/scheduling evidence for the later performance milestone. The accepted audio buffering policy must not be changed solely from this observation without a repeatable test and measurements.
+
+
+## Field validation status
+
+**PASS — 2026-09-25.**
+
+The full eight-case recording matrix passed against the L4 runtime and was followed by a focused retest of the Portal reentrancy fix at commit `db400b833457321ae773b915c3853fee4e26ec34`.
+
+The repeated-Start defect is fixed.
+
+The previously reported brief audio interruption did not persist in the focused retest and remains a performance observation only.
+
+A partially erased-text artifact remains visible inside the desktop Share Screen Portal UI. Because it persists with a single Portal request and is rendered by the desktop Portal rather than Troika D Lite, it is documented as a non-blocking external/system rendering observation.
+
+Detailed evidence:
+
+- `docs/FIELD-TEST-L4-2026-09-25.md`
