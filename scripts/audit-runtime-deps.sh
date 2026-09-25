@@ -15,8 +15,13 @@ for element in "${!EXPECTED[@]}"; do
   expected="${EXPECTED[$element]}"
   output="$(gst-inspect-1.0 "$element")"
   filename="$(
-    awk -F': ' '/^[[:space:]]*Filename[[:space:]]*:/ {print $2; exit}' \
-      <<<"$output"
+    awk '
+      /^[[:space:]]*Filename[[:space:]]+/ {
+        sub(/^[[:space:]]*Filename[[:space:]]+/, "")
+        print
+        exit
+      }
+    ' <<<"$output"
   )"
   if [[ -z "$filename" ]]; then
     echo "Could not resolve plugin file for $element" >&2
