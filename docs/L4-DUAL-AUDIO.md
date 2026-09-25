@@ -132,3 +132,34 @@ For the two dual-audio cases in particular, confirm:
 - no reproducible finalization timeout appears.
 
 A longer dual-audio run of at least two to three minutes is required to check drift.
+
+
+## Field follow-up: Portal request reentrancy
+
+During L4 human testing, repeated clicks on **Start Recording** while the first system Share Screen dialog was still open could create additional Portal dialogs.
+
+Root cause: the Portal wrapper waits in a nested `GLib.MainLoop`. GTK therefore remains able to process user events while the initial screen-selection request is pending, but the previous UI did not disable Start and Recorder did not yet expose a STARTING/busy state.
+
+The L4 branch now treats screen selection as a busy state:
+
+- Start is disabled immediately before entering the Portal selection flow;
+- FPS and audio controls are frozen while selection is pending;
+- idle device polling is suspended during the pending request;
+- Recorder rejects re-entrant Start calls independently of the UI;
+- closing the app window while selection is pending asks the user to cancel the system dialog first.
+
+A focused human retest is required before L4 merge:
+
+1. press Start once and leave the Share Screen dialog open;
+2. attempt repeated clicks/activation of Start — no second Portal dialog may appear;
+3. Cancel and confirm the controls become usable again;
+4. Start again and Share — exactly one Portal dialog/session should be created;
+5. observe whether the previously seen partially erased Portal text still occurs.
+
+The text-rendering artifact is not attributed to the application yet because it appears inside the desktop Portal UI. First retest after removing duplicate Portal dialogs; if it persists with a single dialog, investigate it separately as a compositor/portal rendering issue.
+
+## Performance observation
+
+Human testing also reported a very brief, subtle audio interruption on some workspace switches, especially when the machine was under higher load.
+
+No GStreamer error, EOS fallback, or finalization timeout accompanied the reported cases. This is retained as performance/scheduling evidence for the later performance milestone. The accepted audio buffering policy must not be changed solely from this observation without a repeatable test and measurements.

@@ -47,6 +47,7 @@ class Recorder:
         self.portal_closed_subscription = 0
 
         self.stop_timeout_id = 0
+        self.starting = False
         self.stopping = False
         self.active_fps: Optional[int] = None
         self.active_microphone = False
@@ -55,6 +56,14 @@ class Recorder:
     @property
     def active(self) -> bool:
         return self.pipeline is not None
+
+    @property
+    def busy(self) -> bool:
+        return (
+            self.starting
+            or self.pipeline is not None
+            or self.portal_session is not None
+        )
 
     def _require_runtime(
         self,
@@ -90,7 +99,7 @@ class Recorder:
         microphone_device: Optional[str] = None,
         system_audio_device: Optional[str] = None,
     ) -> None:
-        if self.pipeline is not None or self.portal_session is not None:
+        if self.busy:
             raise RuntimeError("Recorder is already busy")
         if fps not in (15, 30):
             raise ValueError("FPS must be 15 or 30")
@@ -101,6 +110,7 @@ class Recorder:
         include_dual_audio = include_microphone and include_system_audio
 
         self._require_runtime(include_audio, include_dual_audio)
+        self.starting = True
         self.stopping = False
 
         try:
@@ -156,6 +166,8 @@ class Recorder:
         except Exception:
             self._force_null_and_cleanup()
             raise
+        finally:
+            self.starting = False
 
     def stop(self) -> None:
         pipeline = self.pipeline
@@ -348,6 +360,7 @@ class Recorder:
             self.pipewire_fd = None
 
         self.portal = None
+        self.starting = False
         self.stopping = False
         self.active_fps = None
         self.active_microphone = False

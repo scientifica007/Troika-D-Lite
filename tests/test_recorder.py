@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from troika_d_lite.recorder import Recorder
@@ -40,6 +41,21 @@ class _Pipeline:
     def send_event(self, _event):
         self.fallback_events += 1
         return True
+
+
+class RecorderStartGuardTests(unittest.TestCase):
+    def test_start_rejects_reentry_while_portal_request_is_pending(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder.starting = True
+
+        with self.assertRaisesRegex(RuntimeError, "already busy"):
+            recorder.start(30, Path("/tmp/a.mp4"))
+
+    def test_busy_includes_starting_state(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        self.assertFalse(recorder.busy)
+        recorder.starting = True
+        self.assertTrue(recorder.busy)
 
 
 class RecorderStopTests(unittest.TestCase):
