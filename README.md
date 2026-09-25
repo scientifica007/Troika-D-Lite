@@ -4,35 +4,83 @@
 
 Troika D Lite is a deliberately small companion project to [Troika D](https://github.com/scientifica007/Troika-D).
 
-Its first product goal is intentionally narrow:
+Its product rule is intentionally narrow:
 
 > **Open → choose audio → Record → Stop**
 
-The v0.1 scope is limited to:
+## Current status
 
-- full-screen video recording;
-- microphone audio, optional;
-- system audio, optional;
-- microphone + system audio together;
+The core v0.1 recorder is implemented and field-validated on Ubuntu 24.04 / Wayland through L4.
+
+Validated recording states:
+
+- full-screen video only;
+- full-screen + microphone;
+- full-screen + system audio;
+- full-screen + microphone + system audio;
 - 15 FPS and 30 FPS;
 - MP4/H.264 output;
-- Ubuntu 24.04 / Wayland first;
-- robust Stop/finalization;
-- native desktop integration and Debian packaging.
+- Portal Cancel;
+- normal Stop/finalization;
+- system-side Portal Stop;
+- microphone hot-plug and selection.
 
-It intentionally excludes Window capture, Area capture, Webcam, Screenshot, Pause/Resume, 60 FPS, multiple quality profiles, editing, effects, and streaming.
+L5 adds the minimal product UI and desktop-integration metadata.
 
-## Project status
+Native Debian packaging, dependency minimization, and clean-install verification remain for the next packaging milestone.
 
-**Foundation / specification stage.**
+## Product boundary
 
-No runtime recorder code is intentionally present yet. The project starts from a clean repository so only the minimum proven pieces needed from Troika D are introduced later.
+Troika D Lite intentionally excludes:
 
-Before implementation, read:
+- Window capture;
+- Area capture;
+- Webcam;
+- Screenshot;
+- Pause/Resume;
+- 60 FPS;
+- multiple quality profiles;
+- editing;
+- effects;
+- streaming.
+
+The v0.1 output directory is:
+
+```text
+~/Videos
+```
+
+Files are timestamped and collision-safe.
+
+## Run from source
+
+On a supported Ubuntu 24.04 / Wayland system with the required native dependencies installed:
+
+```bash
+PYTHONPATH=src /usr/bin/python3 -m troika_d_lite
+```
+
+The installed command entry point is:
+
+```text
+troika-d-lite
+```
+
+Desktop launcher installation is completed by the distribution/packaging milestone.
+
+## Documentation
+
+Start with:
 
 - `docs/MINI-PRODUCT-SPEC-v0.1.md`
 - `docs/PROJECT-BOUNDARY.md`
-- `docs/ORIGIN.md`
+- `docs/L1-VIDEO-ONLY.md`
+- `docs/L2-MICROPHONE.md`
+- `docs/L3-SYSTEM-AUDIO.md`
+- `docs/L4-DUAL-AUDIO.md`
+- `docs/L5-PRODUCT-UI-DESKTOP.md`
+
+Field-test evidence is kept under `docs/FIELD-TEST-*.md`.
 
 ## Relationship to Troika D
 
@@ -41,7 +89,7 @@ Troika D Lite is not intended to replace Troika D.
 - **Troika D** remains the broader recorder.
 - **Troika D Lite** is a single-purpose recorder optimized for simplicity, low complexity, and low-resource machines.
 
-Code may later be selectively derived from field-tested Troika D components, but the full Troika D codebase must not be copied wholesale into this repository.
+Only the minimum proven behavior needed by Lite is selectively derived from Troika D.
 
 ## License
 

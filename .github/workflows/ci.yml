@@ -32,7 +32,9 @@ jobs:
             gstreamer1.0-plugins-bad \
             gstreamer1.0-plugins-ugly \
             gstreamer1.0-libav \
-            pulseaudio-utils
+            pulseaudio-utils \
+            desktop-file-utils \
+            appstream
 
       - name: Parse project metadata
         run: |
@@ -58,6 +60,13 @@ jobs:
           do
             gst-inspect-1.0 "$element" >/dev/null
           done
+
+      - name: Desktop integration validation
+        run: |
+          desktop-file-validate \
+            data/io.github.scientifica007.TroikaDLite.desktop
+          appstreamcli validate --no-net \
+            data/io.github.scientifica007.TroikaDLite.metainfo.xml
 
       - name: Unit tests
         run: |

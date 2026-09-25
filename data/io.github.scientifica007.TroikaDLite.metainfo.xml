@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.scientifica007.TroikaDLite</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Troika D Lite</name>
+  <summary>Minimal screen and audio recorder for Linux</summary>
+  <description>
+    <p>
+      Troika D Lite records the full screen on Linux with optional microphone
+      audio, system audio, or both.
+    </p>
+    <p>
+      Its interface is intentionally small: choose audio, choose 15 or 30 FPS,
+      start recording, and stop when finished.
+    </p>
+  </description>
+  <launchable type="desktop-id">
+    io.github.scientifica007.TroikaDLite.desktop
+  </launchable>
+  <url type="homepage">
+    https://github.com/scientifica007/Troika-D-Lite
+  </url>
+  <content_rating type="oars-1.1"/>
+</component>

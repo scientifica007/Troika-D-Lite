@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Troika D Lite
+Comment=Record your screen with optional microphone and system audio
+Exec=troika-d-lite
+Icon=io.github.scientifica007.TroikaDLite
+Terminal=false
+Categories=AudioVideo;Recorder;
+Keywords=screen;record;recorder;video;audio;Wayland;
+StartupNotify=true
