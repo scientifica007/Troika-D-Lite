@@ -206,3 +206,25 @@ If the audio queues are at/near their configured 3-second maximum while
 the video side is starved or not advancing, that confirms that downstream
 A/V aggregation is blocking the microphone source long enough to overflow
 its live capture ringbuffer.
+
+
+## Synthetic continuous-video A/V probe
+
+To separate the generic x264/mp4mux path from the Portal/PipeWire screen
+source, run:
+
+```bash
+bash scripts/mic001_av_probe.sh 90
+```
+
+This creates a continuously-producing 15 FPS `videotestsrc` plus the real
+microphone, using the same x264 bitrate/preset, AAC bitrate, 3-second queues,
+and robust `mp4mux` settings as Lite.
+
+Interpretation:
+
+- synthetic A/V also drops microphone samples:
+  investigate generic encoder/mux scheduling or machine saturation;
+- synthetic A/V is clean while Portal screen + mic drops:
+  the failure depends on the real screen source delivery pattern and its
+  interaction with downstream A/V aggregation.
