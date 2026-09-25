@@ -5,4 +5,4 @@ dist/
 dist-deb/
 build/
 *.egg-info/
-benchmark-results/\n
+benchmark-results/

@@ -77,7 +77,8 @@ Start with:
 - `docs/L3-SYSTEM-AUDIO.md`
 - `docs/L4-DUAL-AUDIO.md`
 - `docs/L5-PRODUCT-UI-DESKTOP.md`
-- `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`\n- `docs/L7-PERFORMANCE-FINAL-ACCEPTANCE.md`
+- `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`
+- `docs/L7-PERFORMANCE-FINAL-ACCEPTANCE.md`
 
 Field-test evidence is kept under `docs/FIELD-TEST-*.md`.
 

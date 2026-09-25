@@ -54,13 +54,41 @@ RSS is the main recorder process resident set. GStreamer encoding/muxing runs in
 
 The harness does not alter the recorder pipeline.
 
-## Controlled benchmark scenarios
+## Performance plan
 
-Use the same machine, desktop session, monitor, output directory, pointer state, source devices, and workload.
+Use the same machine, desktop session, monitor, output directory, pointer state, source devices, and workload discipline.
 
-Run each scenario **three times per application** and compare medians.
+L7 has two layers so that the v0.1 specification is fully measured without turning the field gate into dozens of unnecessary repetitions.
 
-### Scenario A — low-resource baseline
+### Layer 1 — complete Lite performance matrix
+
+Measure Troika D Lite once for each required FPS/audio combination:
+
+| FPS | Microphone | System audio |
+| --- | --- | --- |
+| 15 | OFF | OFF |
+| 15 | ON | OFF |
+| 15 | OFF | ON |
+| 15 | ON | ON |
+| 30 | OFF | OFF |
+| 30 | ON | OFF |
+| 30 | OFF | ON |
+| 30 | ON | ON |
+
+Use a 30-second measured recording window for this coverage sweep.
+
+This satisfies the product requirement to measure 15 FPS and 30 FPS across all four required audio states.
+
+For consistency:
+- use the low-motion workload for video-only and single-audio cases;
+- use the same local playback plus ordinary desktop motion for dual-audio cases;
+- keep the microphone, default output, power state, monitor resolution, and desktop session unchanged.
+
+### Layer 2 — controlled repeated comparison with Troika D
+
+Use two representative scenarios and run each **three times per application**.
+
+#### Scenario A — low-resource baseline
 
 - Full Screen;
 - 15 FPS;
@@ -69,7 +97,7 @@ Run each scenario **three times per application** and compare medians.
 - low-motion desktop;
 - 60-second measured recording window.
 
-### Scenario B — high-load representative use
+#### Scenario B — high-load representative use
 
 - Full Screen;
 - 30 FPS;
@@ -81,13 +109,15 @@ Run each scenario **three times per application** and compare medians.
 - same high-motion local playback/workload;
 - 60-second measured recording window.
 
-This produces 12 measured sessions total:
+Layer 2 produces 12 measured sessions:
 
 ```text
 2 scenarios × 2 applications × 3 repetitions = 12
 ```
 
-The already accepted L4 eight-case matrix remains the functional coverage. L7 does not repeat all eight cases three times merely to generate performance statistics.
+Together with the eight-case Lite coverage sweep, the planned L7 measurement set is 20 sessions.
+
+The already accepted L4 matrix remains the functional baseline; L7 adds quantitative resource measurements rather than re-litigating functionality.
 
 ## Workload discipline
 
@@ -109,6 +139,10 @@ cd ~/Troika-D-Lite
 python3 scripts/benchmark_session.py \
   --app lite \
   --scenario A-15-video-low \
+  --fps 15 \
+  --mic 0 \
+  --system-audio 0 \
+  --workload low \
   --app-id io.github.scientifica007.TroikaDLite \
   --cwd "$HOME/Troika-D-Lite" \
   --output-dir "$HOME/Videos" \
@@ -124,6 +158,10 @@ cd ~/Troika-D-Lite
 python3 scripts/benchmark_session.py \
   --app troika-d \
   --scenario A-15-video-low \
+  --fps 15 \
+  --mic 0 \
+  --system-audio 0 \
+  --workload low \
   --app-id io.github.scientifica007.TroikaD \
   --cwd "$HOME/Troika-D" \
   --output-dir "$HOME/Videos" \
@@ -150,10 +188,13 @@ After the runs:
 ```bash
 python3 scripts/summarize_benchmarks.py \
   benchmark-results/*.json \
+  --require-lite-matrix \
   --json-out benchmark-results/summary.json
 ```
 
-The table reports medians grouped by application and scenario.
+The command fails if any of the eight required Lite FPS/audio combinations is missing. The table reports medians grouped by application and scenario.
+
+Raw JSON/log files under `benchmark-results/` remain local because they contain machine-specific paths and diagnostic detail. The repository should receive the aggregate numeric table, benchmark conditions, interpretation, and final field conclusion in the L7 field-test document.
 
 ## Interpretation rules
 
@@ -195,7 +236,8 @@ The known partially erased text in the desktop Share Screen Portal remains an ex
 L7 passes when:
 
 - benchmark tooling passes CI;
-- three repetitions exist for each application/scenario pair;
+- all eight Lite FPS/audio combinations have performance measurements;
+- three repetitions exist for each application/scenario pair in the two controlled comparison scenarios;
 - measurements are internally consistent enough to interpret;
 - no reproducible recorder regression appears;
 - no repeated finalization timeout appears;

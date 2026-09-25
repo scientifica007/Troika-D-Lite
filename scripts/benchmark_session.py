@@ -301,6 +301,19 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--app", required=True, help="Short app key")
     parser.add_argument("--scenario", required=True)
+    parser.add_argument("--fps", type=int, choices=(15, 30), required=True)
+    parser.add_argument("--mic", type=int, choices=(0, 1), required=True)
+    parser.add_argument(
+        "--system-audio",
+        type=int,
+        choices=(0, 1),
+        required=True,
+    )
+    parser.add_argument(
+        "--workload",
+        choices=("low", "high"),
+        required=True,
+    )
     parser.add_argument("--app-id", required=True)
     parser.add_argument("--cwd", type=Path, required=True)
     parser.add_argument(
@@ -425,6 +438,10 @@ def main() -> int:
             "schema": 1,
             "app": args.app,
             "scenario": args.scenario,
+            "fps": args.fps,
+            "microphone": bool(args.mic),
+            "system_audio": bool(args.system_audio),
+            "workload": args.workload,
             "app_id": args.app_id,
             "command": command,
             "cwd": str(args.cwd),

@@ -33,6 +33,25 @@ def median(values: list[float]) -> float | None:
     return round(statistics.median(clean), 3) if clean else None
 
 
+def validate_lite_matrix(payloads: list[dict]) -> set[tuple[int, bool, bool]]:
+    expected = {
+        (fps, mic, system_audio)
+        for fps in (15, 30)
+        for mic in (False, True)
+        for system_audio in (False, True)
+    }
+    observed = {
+        (
+            int(payload["fps"]),
+            bool(payload["microphone"]),
+            bool(payload["system_audio"]),
+        )
+        for payload in payloads
+        if payload.get("app") == "lite"
+    }
+    return expected - observed
+
+
 def aggregate(payloads: list[dict]) -> list[dict]:
     groups = defaultdict(list)
     for payload in payloads:
@@ -86,6 +105,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="+", type=Path)
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument(
+        "--require-lite-matrix",
+        action="store_true",
+        help="Fail unless all 8 Lite FPS/audio combinations are present.",
+    )
     return parser.parse_args()
 
 
@@ -95,6 +119,16 @@ def main() -> int:
         json.loads(path.read_text(encoding="utf-8"))
         for path in args.files
     ]
+    if args.require_lite_matrix:
+        missing = validate_lite_matrix(payloads)
+        if missing:
+            formatted = ", ".join(
+                f"fps={fps},mic={int(mic)},system={int(system)}"
+                for fps, mic, system in sorted(missing)
+            )
+            raise SystemExit(f"Incomplete Lite performance matrix: {formatted}")
+        print("Lite 8-case performance matrix: COMPLETE")
+
     rows = aggregate(payloads)
     print(markdown_table(rows))
     if args.json_out:

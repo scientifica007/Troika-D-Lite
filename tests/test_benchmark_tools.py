@@ -52,6 +52,24 @@ class BenchmarkMathTests(unittest.TestCase):
 
 
 class BenchmarkSummaryTests(unittest.TestCase):
+    def test_matrix_validator_detects_and_accepts_all_eight_cases(self):
+        payloads = []
+        for fps in (15, 30):
+            for mic in (False, True):
+                for system in (False, True):
+                    payloads.append(
+                        {
+                            "app": "lite",
+                            "fps": fps,
+                            "microphone": mic,
+                            "system_audio": system,
+                        }
+                    )
+        self.assertEqual(summary.validate_lite_matrix(payloads), set())
+
+        payloads.pop()
+        self.assertEqual(len(summary.validate_lite_matrix(payloads)), 1)
+
     def test_aggregate_uses_median_per_app_and_scenario(self):
         payloads = []
         for startup in (100, 200, 300):
@@ -59,6 +77,9 @@ class BenchmarkSummaryTests(unittest.TestCase):
                 {
                     "scenario": "s1",
                     "app": "lite",
+                    "fps": 15,
+                    "microphone": False,
+                    "system_audio": False,
                     "startup_proxy_ms": startup,
                     "idle": {
                         "cpu_mean_pct": 1,
