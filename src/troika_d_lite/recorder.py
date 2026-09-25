@@ -19,6 +19,7 @@ from .portal import PortalClient
 FINALIZE_TIMEOUT_SECONDS = 12
 SOURCE_NAMES = ("screen_src", "mic_src", "system_audio_src")
 MIC_GAP_WARN_NS = 100_000_000
+SCREEN_GAP_WARN_NS = 1_000_000_000
 
 
 def is_wayland_session() -> bool:
@@ -62,8 +63,15 @@ class Recorder:
         self.mic_invalid_pts_count = 0
         self.mic_max_gap_ns = 0
         self.mic_last_end_ns: Optional[int] = None
+
+        self.screen_probe_pad: Optional[Gst.Pad] = None
+        self.screen_probe_id = 0
+        self.screen_buffer_count = 0
+        self.screen_gap_count = 0
+        self.screen_max_gap_ns = 0
+        self.screen_last_pts_ns: Optional[int] = None
+
         self.audio_runtime_logged = False
-        self.forced_system_clock: Optional[Gst.Clock] = None
 
     @property
     def active(self) -> bool:
@@ -150,9 +158,9 @@ class Recorder:
             self.active_fps = fps
             self.active_microphone = include_microphone
             self.active_system_audio = include_system_audio
-            self._configure_capture_clock()
-            self._reset_mic_diagnostics()
+            self._reset_av_diagnostics()
             self._install_mic_diagnostics()
+            self._install_screen_diagnostics()
 
             self.bus = pipeline.get_bus()
             self.bus.add_signal_watch()
@@ -184,27 +192,17 @@ class Recorder:
         finally:
             self.starting = False
 
-    def _configure_capture_clock(self) -> None:
-        pipeline = self.pipeline
-        self.forced_system_clock = None
-        if pipeline is None or not self.active_microphone:
-            return
-
-        clock = Gst.SystemClock.obtain()
-        pipeline.use_clock(clock)
-        self.forced_system_clock = clock
-        print(
-            "MIC clock policy: forced-system-clock",
-            flush=True,
-        )
-
-    def _reset_mic_diagnostics(self) -> None:
+    def _reset_av_diagnostics(self) -> None:
         self.mic_buffer_count = 0
         self.mic_gap_count = 0
         self.mic_discont_count = 0
         self.mic_invalid_pts_count = 0
         self.mic_max_gap_ns = 0
         self.mic_last_end_ns = None
+        self.screen_buffer_count = 0
+        self.screen_gap_count = 0
+        self.screen_max_gap_ns = 0
+        self.screen_last_pts_ns = None
         self.audio_runtime_logged = False
 
     def _install_mic_diagnostics(self) -> None:
@@ -224,6 +222,67 @@ class Recorder:
             Gst.PadProbeType.BUFFER,
             self._on_mic_buffer,
         )
+
+    def _install_screen_diagnostics(self) -> None:
+        pipeline = self.pipeline
+        if pipeline is None or not self.active_microphone:
+            return
+
+        source = pipeline.get_by_name("screen_src")
+        if source is None:
+            return
+        pad = source.get_static_pad("src")
+        if pad is None:
+            return
+
+        self.screen_probe_pad = pad
+        self.screen_probe_id = pad.add_probe(
+            Gst.PadProbeType.BUFFER,
+            self._on_screen_buffer,
+        )
+
+    def _remove_screen_diagnostics(self) -> None:
+        if self.screen_probe_pad is not None and self.screen_probe_id:
+            try:
+                self.screen_probe_pad.remove_probe(self.screen_probe_id)
+            except Exception:
+                pass
+        self.screen_probe_pad = None
+        self.screen_probe_id = 0
+
+    def _observe_screen_timing(self, pts_ns: Optional[int]) -> None:
+        self.screen_buffer_count += 1
+        if pts_ns is None:
+            return
+
+        if self.screen_last_pts_ns is not None:
+            delta = pts_ns - self.screen_last_pts_ns
+            if delta >= SCREEN_GAP_WARN_NS:
+                self.screen_gap_count += 1
+                self.screen_max_gap_ns = max(
+                    self.screen_max_gap_ns,
+                    delta,
+                )
+                print(
+                    "SCREEN GAP: "
+                    f"buffer={self.screen_buffer_count} "
+                    f"gap-ms={delta / 1_000_000:.3f} "
+                    f"pts-ns={pts_ns}",
+                    flush=True,
+                )
+
+        self.screen_last_pts_ns = pts_ns
+
+    def _on_screen_buffer(self, _pad, info):
+        buffer = info.get_buffer()
+        if buffer is None:
+            return Gst.PadProbeReturn.OK
+
+        pts_ns = None
+        if buffer.pts != Gst.CLOCK_TIME_NONE:
+            pts_ns = int(buffer.pts)
+        self._observe_screen_timing(pts_ns)
+        return Gst.PadProbeReturn.OK
 
     def _remove_mic_diagnostics(self) -> None:
         if self.mic_probe_pad is not None and self.mic_probe_id:
@@ -368,6 +427,56 @@ class Recorder:
             f"invalid-pts={self.mic_invalid_pts_count}",
             flush=True,
         )
+    def _log_screen_timing(self, reason: str) -> None:
+        if not self.active_microphone:
+            return
+        print(
+            "Screen source timing stats "
+            f"[{reason}] "
+            f"buffers={self.screen_buffer_count} "
+            f"gaps={self.screen_gap_count} "
+            f"max-gap-ms={self.screen_max_gap_ns / 1_000_000:.3f}",
+            flush=True,
+        )
+
+    def _log_queue_levels(self, reason: str) -> None:
+        pipeline = self.pipeline
+        if pipeline is None:
+            return
+
+        parts = []
+        for name in (
+            "mic_capture_q",
+            "audio_mux_q",
+            "video_capture_q",
+            "video_mux_q",
+        ):
+            queue = pipeline.get_by_name(name)
+            if queue is None:
+                continue
+            try:
+                level_time = int(
+                    queue.get_property("current-level-time")
+                )
+                level_buffers = int(
+                    queue.get_property("current-level-buffers")
+                )
+                max_time = int(queue.get_property("max-size-time"))
+            except Exception:
+                continue
+            parts.append(
+                f"{name}:"
+                f"time-ms={level_time / 1_000_000:.3f},"
+                f"buffers={level_buffers},"
+                f"max-ms={max_time / 1_000_000:.3f}"
+            )
+
+        print(
+            f"Queue levels [{reason}] "
+            + (" ".join(parts) if parts else "unavailable"),
+            flush=True,
+        )
+
     def stop(self) -> None:
         pipeline = self.pipeline
         if pipeline is None or self.stopping:
@@ -423,6 +532,7 @@ class Recorder:
             )
             self._log_video_timing("eos-rejected")
             self._log_mic_timing("eos-rejected")
+            self._log_screen_timing("eos-rejected")
             self._force_null_and_cleanup()
             return
 
@@ -469,6 +579,7 @@ class Recorder:
         )
         self._log_video_timing("finalize-timeout")
         self._log_mic_timing("finalize-timeout")
+        self._log_screen_timing("finalize-timeout")
         self._force_null_and_cleanup()
         return False
 
@@ -485,6 +596,7 @@ class Recorder:
         )
         self._log_video_timing("external-portal-stop")
         self._log_mic_timing("external-portal-stop")
+        self._log_screen_timing("external-portal-stop")
         self._force_null_and_cleanup(portal_already_closed=True)
         return False
 
@@ -493,6 +605,7 @@ class Recorder:
             err, debug = message.parse_error()
             self._log_video_timing("error")
             self._log_mic_timing("error")
+            self._log_screen_timing("error")
             if debug:
                 print(debug, flush=True)
             self.status_cb(f"Recording error: {err.message}")
@@ -501,6 +614,7 @@ class Recorder:
         elif message.type == Gst.MessageType.EOS:
             self._log_video_timing("eos")
             self._log_mic_timing("eos")
+            self._log_screen_timing("eos")
             pipeline = self.pipeline
             if pipeline is not None:
                 pipeline.set_state(Gst.State.NULL)
@@ -558,6 +672,11 @@ class Recorder:
                 f"source={source_name}: {warning.message}",
                 flush=True,
             )
+            if (
+                source_name == "mic_src"
+                and "Can't record audio fast enough" in warning.message
+            ):
+                self._log_queue_levels("mic-backpressure")
             if debug:
                 print(debug, flush=True)
 
@@ -581,6 +700,7 @@ class Recorder:
             self.stop_timeout_id = 0
 
         self._remove_mic_diagnostics()
+        self._remove_screen_diagnostics()
 
         if self.bus is not None:
             if self.bus_handler_id:
@@ -620,7 +740,6 @@ class Recorder:
             self.pipewire_fd = None
 
         self.portal = None
-        self.forced_system_clock = None
         self.starting = False
         self.stopping = False
         self.active_fps = None

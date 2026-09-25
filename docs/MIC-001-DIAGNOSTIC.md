@@ -152,3 +152,57 @@ The candidate must not merge until field testing confirms:
 - recorded microphone audio is continuous;
 - video remains acceptable;
 - dual-audio remains synchronized.
+
+
+## System-clock candidate result
+
+Forcing `GstSystemClock` was tested in the combined screen+microphone
+pipeline and **failed** to resolve MIC-001.
+
+The candidate did select `GstSystemClock`, but the microphone still
+reported repeated source-boundary gaps, including:
+
+- 2.800 s;
+- 15.000 s;
+- 14.240 s;
+- 30.680 s.
+
+GStreamer explicitly reported that samples were dropped because downstream
+was consuming audio too slowly.
+
+The final diagnostic summary for that run was:
+
+```text
+buffers=6166 gaps=10 max-gap-ms=30680.000 discont=11 invalid-pts=0
+```
+
+Therefore clock selection alone is not the root cause and the forced-clock
+candidate is removed.
+
+A further field observation is decisive: original Troika D records
+**audio-only** cleanly, but the combined screen+microphone mode exhibits
+the same dropout defect as Lite.
+
+This shifts the investigation from microphone capture/clock selection to
+**A/V downstream backpressure**.
+
+## Backpressure diagnostic
+
+The diagnostic branch now also:
+
+- measures timestamp gaps directly at `screen_src`;
+- reports final screen-source gap statistics;
+- snapshots queue levels when `mic_src` emits
+  `Can't record audio fast enough`.
+
+The queue snapshot includes:
+
+- `mic_capture_q`;
+- `audio_mux_q`;
+- `video_capture_q`;
+- `video_mux_q`.
+
+If the audio queues are at/near their configured 3-second maximum while
+the video side is starved or not advancing, that confirms that downstream
+A/V aggregation is blocking the microphone source long enough to overflow
+its live capture ringbuffer.

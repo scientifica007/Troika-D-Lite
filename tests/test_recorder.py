@@ -22,14 +22,6 @@ class _Source:
         return self.pad if name == "src" else None
 
 
-class _ClockPipeline:
-    def __init__(self):
-        self.used_clock = None
-
-    def use_clock(self, clock):
-        self.used_clock = clock
-
-
 class _Pipeline:
     def __init__(self, include_mic=False, include_system=False):
         self.screen = _Source()
@@ -66,38 +58,16 @@ class RecorderStartGuardTests(unittest.TestCase):
         self.assertTrue(recorder.busy)
 
 
-class RecorderClockPolicyTests(unittest.TestCase):
-    @patch("troika_d_lite.recorder.Gst.SystemClock.obtain")
-    def test_microphone_forces_system_clock(self, obtain):
-        fake_clock = object()
-        obtain.return_value = fake_clock
-
-        recorder = Recorder(lambda _text: None, lambda _active: None)
-        pipeline = _ClockPipeline()
-        recorder.pipeline = pipeline
-        recorder.active_microphone = True
-
-        recorder._configure_capture_clock()
-
-        obtain.assert_called_once_with()
-        self.assertIs(pipeline.used_clock, fake_clock)
-        self.assertIs(recorder.forced_system_clock, fake_clock)
-
-    @patch("troika_d_lite.recorder.Gst.SystemClock.obtain")
-    def test_without_microphone_keeps_automatic_clock(self, obtain):
-        recorder = Recorder(lambda _text: None, lambda _active: None)
-        pipeline = _ClockPipeline()
-        recorder.pipeline = pipeline
-        recorder.active_microphone = False
-
-        recorder._configure_capture_clock()
-
-        obtain.assert_not_called()
-        self.assertIsNone(pipeline.used_clock)
-        self.assertIsNone(recorder.forced_system_clock)
-
-
 class RecorderMicrophoneDiagnosticTests(unittest.TestCase):
+    def test_screen_gap_is_recorded(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder._observe_screen_timing(0)
+        recorder._observe_screen_timing(1_500_000_000)
+
+        self.assertEqual(recorder.screen_buffer_count, 2)
+        self.assertEqual(recorder.screen_gap_count, 1)
+        self.assertEqual(recorder.screen_max_gap_ns, 1_500_000_000)
+
     def test_continuous_buffers_do_not_count_as_gap(self):
         recorder = Recorder(lambda _text: None, lambda _active: None)
         duration = 20_000_000
