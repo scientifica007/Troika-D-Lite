@@ -28,7 +28,6 @@ required_depends=(
   gir1.2-gtk-3.0
   gir1.2-gstreamer-1.0
   gstreamer1.0-pipewire
-  gstreamer1.0-pulseaudio
   gstreamer1.0-plugins-base
   gstreamer1.0-plugins-good
   gstreamer1.0-plugins-bad
