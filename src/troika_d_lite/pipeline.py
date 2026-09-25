@@ -25,6 +25,7 @@ REQUIRED_VIDEO_GST_ELEMENTS = (
     "queue",
     "videoconvert",
     "videorate",
+    "imagefreeze",
     "videoscale",
     "x264enc",
     "h264parse",
@@ -182,13 +183,30 @@ def build_video_pipeline(
         microphone_device,
         system_audio_device,
     )
+    include_audio = (
+        microphone_device is not None
+        or system_audio_device is not None
+    )
+
+    if include_audio:
+        video_rate_chain = (
+            "imagefreeze name=video_hold "
+            "is-live=true allow-replace=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+            "videorate name=video_rate skip-to-first=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+        )
+    else:
+        video_rate_chain = (
+            "videorate name=video_rate skip-to-first=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+        )
 
     description = (
         f"{_video_source(stream)} ! "
         f"{video_capture_q} ! "
         "videoconvert ! video/x-raw,format=I420 ! "
-        "videorate name=video_rate skip-to-first=true ! "
-        f"video/x-raw,framerate={fps}/1 ! "
+        f"{video_rate_chain}"
         "videoscale ! "
         f"x264enc bitrate={VIDEO_BITRATE_KBPS} "
         f"speed-preset={X264_SPEED_PRESET} "

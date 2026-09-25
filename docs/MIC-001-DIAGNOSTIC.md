@@ -228,3 +228,47 @@ Interpretation:
 - synthetic A/V is clean while Portal screen + mic drops:
   the failure depends on the real screen source delivery pattern and its
   interaction with downstream A/V aggregation.
+
+
+## Heartbeat fix candidate
+
+The backpressure run correlated long screen-source gaps directly with audio
+queue saturation and microphone sample loss. Representative evidence:
+
+- screen gap: 10.687 s -> microphone gap: 4.440 s;
+- screen gap: 12.686 s -> microphone gap: 6.760 s;
+- screen gap: 19.497 s -> microphone gap: 13.460 s;
+- audio mux queue repeatedly reached approximately 2.8–3.0 s;
+- video mux queue was usually empty during the same failures;
+- GStreamer reported that `pulsesrc` dropped samples because downstream
+  was consuming too slowly.
+
+This is sufficient to test a targeted fix.
+
+When any audio stream is enabled, the video branch now inserts:
+
+```text
+imagefreeze name=video_hold is-live=true allow-replace=true
+```
+
+before the fixed-framerate stage.
+
+The element continuously emits the latest screen frame at the negotiated
+15/30 FPS even when the PipeWire screen source produces no new damage frame.
+When a real screen frame arrives, `allow-replace=true` makes it become the
+new frame being emitted.
+
+Video-only mode intentionally retains the old sparse path to avoid imposing
+continuous encoding load where A/V mux synchronization is not required.
+
+The fix candidate changes no audio source, buffer, latency, queue, codec,
+mux, Portal, or stop/finalization setting.
+
+Field acceptance for MIC-001 requires:
+
+- no `Can't record audio fast enough` warning;
+- no long `MIC GAP`;
+- continuous microphone audio by listening;
+- acceptable video motion and A/V sync;
+- clean EOS;
+- CPU impact measured after correctness is established.
