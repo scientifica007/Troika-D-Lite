@@ -49,7 +49,7 @@ The package declares the dependencies needed by the actual L1–L5 runtime.
 | GTK 3 typelib | `gir1.2-gtk-3.0` |
 | GStreamer typelib | `gir1.2-gstreamer-1.0` |
 | `pipewiresrc` | `gstreamer1.0-pipewire` |
-| `pulsesrc` | `gstreamer1.0-pulseaudio` |
+| `pulsesrc` | `gstreamer1.0-plugins-good` |
 | conversion/resample/mixer base elements | `gstreamer1.0-plugins-base` |
 | MP4 muxer | `gstreamer1.0-plugins-good` |
 | H.264 parser | `gstreamer1.0-plugins-bad` |
@@ -60,7 +60,7 @@ The package declares the dependencies needed by the actual L1–L5 runtime.
 
 `pipewire` and a desktop Portal backend are recommendations because the application targets an Ubuntu/Wayland desktop session where those services are expected to be provided by the environment.
 
-Notably, L6 explicitly declares both `gstreamer1.0-pipewire` and `gstreamer1.0-pulseaudio`. The application directly requires their GStreamer source elements; relying on them being incidentally present would make the package contract incomplete.
+L6 explicitly declares `gstreamer1.0-pipewire` because it owns `pipewiresrc`. The Ubuntu 24.04 ownership audit established that `pulsesrc` is supplied by `gstreamer1.0-plugins-good`, so the separate `gstreamer1.0-pulseaudio` package is intentionally not declared as a Lite runtime dependency.
 
 `gstreamer1.0-tools` is a CI/diagnostic tool and is not a runtime package dependency.
 
