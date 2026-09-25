@@ -134,3 +134,30 @@ After explicit approval:
 9. verify the published tag, asset, and release metadata.
 
 L8 preparation does not itself authorize step 5 or later.
+
+
+## Publication authorization and execution
+
+Publication of `v0.1.0-beta.1` was explicitly authorized on 2026-09-25.
+
+Because the connected GitHub action surface does not expose a direct create-release mutation, publication is implemented as an auditable repository workflow:
+
+- `.github/workflows/publish-v0.1.0-beta.1.yml`
+
+The workflow publishes only after the normal `CI` workflow succeeds on the dedicated release-trigger branch:
+
+```text
+milestone/release-v0.1.0-beta.1
+```
+
+Before publication it verifies that the CI-tested SHA equals the current `main` SHA. It then:
+
+1. checks out that exact SHA;
+2. verifies release metadata;
+3. builds and verifies `troika-d-lite_0.1.0~beta1-1_all.deb`;
+4. creates or verifies tag `v0.1.0-beta.1` on the exact SHA;
+5. creates a GitHub prerelease using the committed release notes;
+6. uploads the Debian asset;
+7. re-reads the tag, release state, prerelease flag, and asset list.
+
+This workflow is idempotent for the same release SHA: an existing correct tag/release is verified, and the Debian asset may be refreshed from the same exact source commit.
