@@ -89,7 +89,7 @@ jobs:
           /usr/bin/python3 - <<'PY'
           from pathlib import Path
           wheels = list(Path("dist").glob("troika_d_lite-0.1.0a0-*.whl"))
-          sdists = list(Path("dist").glob("troika_d_lite-0.1.0a0.tar.gz"))
+          sdists = list(Path("dist").glob("troika-d-lite-0.1.0a0.tar.gz"))
           if len(wheels) != 1 or len(sdists) != 1:
               raise SystemExit(
                   f"Unexpected release artifacts: wheels={wheels}, sdists={sdists}"
