@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from troika_d_lite.recorder import Recorder
+from troika_d_lite.recorder import MIC_GAP_WARN_NS, Recorder
 
 
 class _Pad:
@@ -56,6 +56,42 @@ class RecorderStartGuardTests(unittest.TestCase):
         self.assertFalse(recorder.busy)
         recorder.starting = True
         self.assertTrue(recorder.busy)
+
+
+class RecorderMicrophoneDiagnosticTests(unittest.TestCase):
+    def test_continuous_buffers_do_not_count_as_gap(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        duration = 20_000_000
+        recorder._observe_mic_timing(0, duration)
+        recorder._observe_mic_timing(duration, duration)
+        recorder._observe_mic_timing(duration * 2, duration)
+
+        self.assertEqual(recorder.mic_buffer_count, 3)
+        self.assertEqual(recorder.mic_gap_count, 0)
+        self.assertEqual(recorder.mic_max_gap_ns, 0)
+
+    def test_large_timestamp_gap_is_recorded(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        duration = 20_000_000
+        recorder._observe_mic_timing(0, duration)
+        recorder._observe_mic_timing(
+            duration + MIC_GAP_WARN_NS + 50_000_000,
+            duration,
+        )
+
+        self.assertEqual(recorder.mic_gap_count, 1)
+        self.assertEqual(
+            recorder.mic_max_gap_ns,
+            MIC_GAP_WARN_NS + 50_000_000,
+        )
+
+    def test_invalid_pts_and_discontinuity_are_counted(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder._observe_mic_timing(None, None, discont=True)
+
+        self.assertEqual(recorder.mic_buffer_count, 1)
+        self.assertEqual(recorder.mic_invalid_pts_count, 1)
+        self.assertEqual(recorder.mic_discont_count, 1)
 
 
 class RecorderStopTests(unittest.TestCase):
