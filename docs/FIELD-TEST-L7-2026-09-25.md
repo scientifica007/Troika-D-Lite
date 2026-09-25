@@ -268,3 +268,68 @@ The final installed-package 30 FPS dual-audio run remains required to confirm pr
 - corrected visible-window Scenario A recheck: PASS;
 - low-motion CPU regression: CLOSED;
 - final installed-package 2–3 minute dual-audio acceptance: PENDING.
+
+
+## Final installed-package high-load run
+
+Package:
+
+```text
+Status: install ok installed
+Version: 0.1.0~alpha0-2
+```
+
+The package was built from the current L7 branch after the live-timer performance correction.
+
+Configuration:
+
+- 30 FPS;
+- microphone ON;
+- system audio ON;
+- installed `troika-d-lite` command;
+- local moving-video playback;
+- desktop/workspace switching during the run.
+
+Recorder shutdown evidence:
+
+```text
+EOS request: source-pads=[screen_src:1,mic_src:1,system_audio_src:1] pipeline-fallback=0 accepted=1
+Video timing stats [eos] fps=30 mic=1 system=1 in=5204 out=10347 drop=264 duplicate=5407
+```
+
+Output file:
+
+```text
+~/Videos/TroikaD-Lite_2026-09-25_15-27-12.mp4
+313 MiB
+```
+
+The `out=10347` counter at 30 FPS corresponds to roughly 345 seconds (~5 min 45 s) of output-frame time, so this run materially exceeded the requested 2–3 minute acceptance duration.
+
+No `pipeline-fallback=1`, `finalize-timeout`, or `Recording error` was reported.
+
+### Stress observation
+
+During one portion of the local-video workload, repeated workspace switching caused the host desktop itself to become visibly overloaded:
+
+- pointer movement became intermittent/stalled;
+- general desktop interaction became heavy;
+- the recorded video showed a corresponding interruption in both motion and audio.
+
+When the user remained on the workspace playing the local video, recording was normal.
+
+A separate YouTube playback test with page movement and workspace switching did **not** reproduce the problem.
+
+This correlation matters: the observed capture degradation coincided with host/compositor responsiveness degradation rather than occurring while the desktop remained responsive.
+
+### Current classification
+
+**Installed-package recorder lifecycle: PASS.**
+
+**Media quality under ordinary/high workload: PASS where the host remains responsive.**
+
+**Extreme local-video + workspace-switch condition: CLASSIFICATION HOLD.**
+
+The evidence currently favors a host-resource/compositor saturation explanation because mouse/desktop responsiveness degraded at the same moment as the recording. It is not yet sufficient to declare the recorder itself defective or to dismiss the observation as purely environmental.
+
+One focused classification check remains: reproduce the same local-video/workspace-switch workload (1) with no recorder and (2) with the pinned Troika D reference. This distinguishes host/video-player saturation from a Lite-specific interaction.

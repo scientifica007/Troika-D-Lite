@@ -283,6 +283,26 @@ The corrected low-motion finalization median is 5.929 s, with all three runs bel
 
 Detailed medians and interpretation are recorded in `docs/FIELD-TEST-L7-2026-09-25.md`.
 
+## Final installed-package run status
+
+The current-head Debian package `0.1.0~alpha0-2` completed an approximately 5 min 45 s 30 FPS microphone+system-audio recording and stopped through clean source-level EOS with no fallback/timeout/error.
+
+A media interruption was observed only during a period when the desktop itself became visibly overloaded while switching workspaces during local-video playback. YouTube playback plus workspace switching did not reproduce the issue.
+
+Because the host mouse/compositor responsiveness degraded simultaneously, L7 does not classify this as a Lite pipeline failure without one final workload-isolation check.
+
+Required focused classification:
+
+1. same local video + same workspace-switch pattern with **no recorder**;
+2. same local video + same workspace-switch pattern with pinned **Troika D Balanced**, 30 FPS, mic+system audio;
+3. note whether host pointer/desktop stutter and recorded audio/motion interruption occur.
+
+If the host stutters without a recorder, the condition is an environment/video-player saturation limit.
+
+If both recorders trigger the same host-level stutter, the condition is a machine/compositor capacity limit under screen-recording load.
+
+If only Lite reproduces the issue while Troika D and the no-recorder baseline remain responsive, reopen L7 as a Lite-specific performance defect.
+
 ## Final field acceptance
 
 After the benchmark, perform one final installed-package recording using the L6 package path:
