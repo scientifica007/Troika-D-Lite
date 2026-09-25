@@ -208,3 +208,63 @@ Reason:
 - removing the dynamic label directly addresses the proven cause without modifying the media pipeline, codecs, buffering, or Portal behavior.
 
 A three-run visible-window Scenario A recheck is required after this change before the performance finding can be closed.
+
+
+## Corrected visible-window Scenario A recheck
+
+After removing the live elapsed-time UI, Scenario A was repeated three times with the Troika D Lite recording window visible normally on the captured desktop.
+
+Results:
+
+| Run | Startup ms | Idle CPU % | Idle RSS MiB | Record CPU % | Record RSS MiB | Peak RSS MiB | Finalize ms | Outcome | Videorate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| 1 | 392.635 | 7.589 | 66.284 | 2.896 | 112.172 | 112.414 | 8752.001 | EOS | in=37 out=936 drop=16 duplicate=915 |
+| 2 | 360.595 | 4.192 | 65.501 | 2.163 | 112.026 | 113.070 | 5929.024 | EOS | in=60 out=936 drop=29 duplicate=905 |
+| 3 | 363.298 | 4.494 | 65.471 | 12.605 | 112.248 | 112.609 | 5515.601 | EOS | in=47 out=935 drop=21 duplicate=909 |
+
+Median summary:
+
+| Metric | Corrected Lite median |
+| --- | ---: |
+| Startup | 363.298 ms |
+| Idle CPU | 4.494% |
+| Idle RSS | 65.501 MiB |
+| Recording CPU | 2.896% |
+| Recording RSS | 112.172 MiB |
+| Recording RSS peak | 112.609 MiB |
+| Finalization | 5929.024 ms |
+| Finalization outcome | EOS |
+
+### CPU regression closure
+
+The previously observed visible-window Lite Scenario A CPU median was 41.685%.
+
+After the timer correction, the visible-window median is 2.896%.
+
+This is a reduction of approximately 93% relative to the pre-correction Lite median.
+
+The corrected value is also well below the earlier Troika D Scenario A median of 17.139%. This should not be generalized as a universal Lite advantage because low-motion CPU is highly sensitive to compositor damage and desktop activity. It does establish that the earlier Lite-specific CPU regression is closed.
+
+The corrected videorate input counts (37, 60, 47) are much closer to the quiet-screen behavior observed in Troika D than the pre-correction Lite runs, further supporting the self-generated UI-damage diagnosis.
+
+**Low-motion CPU regression: CLOSED / PASS.**
+
+### Finalization observation after correction
+
+All three corrected runs finalized through normal EOS with no pipeline fallback or timeout.
+
+Finalization times were 8.752 s, 5.929 s, and 5.516 s.
+
+These are materially slower than the earlier visible-timer Lite medians, but remain below the 12-second bounded finalization timeout and are not release-blocking by themselves.
+
+The final installed-package 30 FPS dual-audio run remains required to confirm practical finalization behavior under the representative high-load use case.
+
+## L7 status after performance correction
+
+- Layer 1 matrix: PASS;
+- Layer 2 controlled comparison: COMPLETE;
+- hidden-UI root-cause probe: PASS;
+- live-timer correction: implemented;
+- corrected visible-window Scenario A recheck: PASS;
+- low-motion CPU regression: CLOSED;
+- final installed-package 2–3 minute dual-audio acceptance: PENDING.

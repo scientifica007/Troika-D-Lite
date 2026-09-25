@@ -273,7 +273,13 @@ Scenario A shows a reproducible large Lite CPU disadvantage in the low-motion vi
 
 The focused hidden-window probe confirmed the hypothesis: Lite CPU fell from the prior visible-window median of 41.685% to 17.209%, effectively matching Troika D's 17.139% median. The live elapsed-time label is therefore removed as a minimal product-performance correction.
 
-Before final acceptance, repeat Lite Scenario A three times with the corrected static recording view visible. The median should demonstrate that the low-motion CPU regression is closed without requiring the user to hide the application window.
+The corrected static recording view was rechecked three times with the Lite window visible normally.
+
+The corrected Scenario A median recording CPU is 2.896%, versus 41.685% before the correction. All three runs finalized through normal EOS.
+
+**Low-motion CPU regression: CLOSED / PASS.**
+
+The corrected low-motion finalization median is 5.929 s, with all three runs below the 12-second bounded timeout. This is retained as a non-blocking observation and must be considered alongside the final installed-package high-load run.
 
 Detailed medians and interpretation are recorded in `docs/FIELD-TEST-L7-2026-09-25.md`.
 
