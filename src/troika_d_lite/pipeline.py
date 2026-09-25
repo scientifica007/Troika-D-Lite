@@ -31,12 +31,16 @@ REQUIRED_VIDEO_GST_ELEMENTS = (
     "filesink",
 )
 
-REQUIRED_MICROPHONE_GST_ELEMENTS = (
+REQUIRED_AUDIO_GST_ELEMENTS = (
     "pulsesrc",
     "audioconvert",
     "audioresample",
     "avenc_aac",
 )
+
+# Compatibility name retained while L3 broadens the same audio path from
+# microphone-only to microphone-or-system-audio.
+REQUIRED_MICROPHONE_GST_ELEMENTS = REQUIRED_AUDIO_GST_ELEMENTS
 
 
 @dataclass(frozen=True)
@@ -79,15 +83,19 @@ def _video_source(stream: VideoStream) -> str:
     )
 
 
-def _microphone_chain(device: str) -> str:
+def _single_audio_chain(
+    device: str,
+    source_name: str,
+    queue_name: str,
+) -> str:
     return (
-        f"pulsesrc name=mic_src device={_q(device)} "
+        f"pulsesrc name={source_name} device={_q(device)} "
         f"buffer-time={AUDIO_BUFFER_US} "
         f"latency-time={AUDIO_LATENCY_US} "
         "provide-clock=false slave-method=resample ! "
         "audioconvert ! audioresample ! "
         f"audio/x-raw,rate={AUDIO_RATE_HZ} ! "
-        f"{_queue('mic_capture_q', AUDIO_QUEUE_NS)} ! "
+        f"{_queue(queue_name, AUDIO_QUEUE_NS)} ! "
         f"avenc_aac bitrate={AUDIO_BITRATE_BPS} ! "
         f"{_queue('audio_mux_q', AUDIO_QUEUE_NS)} ! mux. "
     )
@@ -98,11 +106,19 @@ def build_video_pipeline(
     fps: int,
     output_path: Path,
     microphone_device: Optional[str] = None,
+    system_audio_device: Optional[str] = None,
 ) -> PipelinePlan:
     if fps not in (15, 30):
         raise ValueError("Troika D Lite v0.1 supports only 15 or 30 FPS")
     if microphone_device is not None and not microphone_device.strip():
         raise ValueError("Microphone device cannot be empty")
+    if system_audio_device is not None and not system_audio_device.strip():
+        raise ValueError("System-audio device cannot be empty")
+    if microphone_device is not None and system_audio_device is not None:
+        raise ValueError(
+            "L3 supports one audio source at a time; "
+            "microphone + system-audio mixing arrives in L4"
+        )
 
     video_capture_q = _queue(
         "video_capture_q",
@@ -117,11 +133,20 @@ def build_video_pipeline(
         f"reserved-moov-update-period={ROBUST_MP4_UPDATE_PERIOD_NS}"
     )
 
-    audio_chain = (
-        _microphone_chain(microphone_device)
-        if microphone_device is not None
-        else ""
-    )
+    if microphone_device is not None:
+        audio_chain = _single_audio_chain(
+            microphone_device,
+            "mic_src",
+            "mic_capture_q",
+        )
+    elif system_audio_device is not None:
+        audio_chain = _single_audio_chain(
+            system_audio_device,
+            "system_audio_src",
+            "system_capture_q",
+        )
+    else:
+        audio_chain = ""
 
     description = (
         f"{_video_source(stream)} ! "

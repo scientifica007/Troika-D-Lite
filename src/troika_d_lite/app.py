@@ -11,7 +11,12 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Gtk", "3.0")
 from gi.repository import GLib, Gtk
 
-from .audio import default_microphone_source, list_microphones
+from .audio import (
+    default_microphone_source,
+    default_system_audio_source,
+    list_microphones,
+    list_system_audio_sources,
+)
 from .portal import PortalCancelled
 from .recorder import Recorder
 
@@ -48,7 +53,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
             application=application,
             title="Troika D Lite",
         )
-        self.set_default_size(390, 285)
+        self.set_default_size(390, 330)
         self.set_border_width(20)
 
         self.recorder = Recorder(
@@ -57,12 +62,14 @@ class RecorderWindow(Gtk.ApplicationWindow):
         )
 
         self.microphones = list_microphones()
-        self._microphone_signature = self._make_microphone_signature()
+        self.system_audio_sources = list_system_audio_sources()
+        self._audio_signature = self._make_audio_signature()
 
         self._timer_id = 0
         self._device_poll_id = 0
         self._started_us = 0
         self._close_after_stop = False
+        self._syncing_audio_ui = False
 
         self.connect("delete-event", self._on_delete_event)
 
@@ -87,12 +94,17 @@ class RecorderWindow(Gtk.ApplicationWindow):
 
         self.mic_check = Gtk.CheckButton(label="Record microphone")
         self.mic_check.set_active(False)
-        self.mic_check.connect("toggled", self._sync_microphone_ui)
+        self.mic_check.connect("toggled", self._on_microphone_toggled)
         idle.pack_start(self.mic_check, False, False, 0)
 
         self.mic_combo = Gtk.ComboBoxText()
         self._populate_microphones()
         idle.pack_start(self.mic_combo, False, False, 0)
+
+        self.system_check = Gtk.CheckButton(label="Record system audio")
+        self.system_check.set_active(False)
+        self.system_check.connect("toggled", self._on_system_audio_toggled)
+        idle.pack_start(self.system_check, False, False, 0)
 
         fps_box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
@@ -134,15 +146,15 @@ class RecorderWindow(Gtk.ApplicationWindow):
         stop.connect("clicked", self._on_stop)
         recording.pack_start(stop, False, False, 0)
 
-        self.status = Gtk.Label(label="L2 microphone milestone")
+        self.status = Gtk.Label(label="L3 system-audio milestone")
         self.status.set_line_wrap(True)
         root.pack_end(self.status, False, False, 0)
 
         self.stack.set_visible_child_name("idle")
-        self._sync_microphone_ui()
+        self._sync_audio_ui()
         self._device_poll_id = GLib.timeout_add_seconds(
             self.DEVICE_POLL_SECONDS,
-            self._poll_microphones,
+            self._poll_audio_devices,
         )
         self.show_all()
 
@@ -152,11 +164,16 @@ class RecorderWindow(Gtk.ApplicationWindow):
     def _set_status(self, text: str) -> None:
         self.status.set_text(text)
 
-    def _make_microphone_signature(self):
-        return tuple(
+    def _make_audio_signature(self):
+        microphones = tuple(
             (source.name, source.description)
             for source in self.microphones
         )
+        system = tuple(
+            (source.name, source.description)
+            for source in self.system_audio_sources
+        )
+        return microphones, system
 
     def _populate_microphones(
         self,
@@ -176,38 +193,75 @@ class RecorderWindow(Gtk.ApplicationWindow):
         elif ids:
             self.mic_combo.set_active(0)
 
-    def _sync_microphone_ui(self, *_args) -> None:
-        available = bool(self.microphones)
-        self.mic_check.set_sensitive(available)
-        if not available and self.mic_check.get_active():
+    def _on_microphone_toggled(self, _button) -> None:
+        if self._syncing_audio_ui:
+            return
+        if self.mic_check.get_active() and self.system_check.get_active():
+            self._syncing_audio_ui = True
+            self.system_check.set_active(False)
+            self._syncing_audio_ui = False
+        self._sync_audio_ui()
+
+    def _on_system_audio_toggled(self, _button) -> None:
+        if self._syncing_audio_ui:
+            return
+        if self.system_check.get_active() and self.mic_check.get_active():
+            self._syncing_audio_ui = True
             self.mic_check.set_active(False)
+            self._syncing_audio_ui = False
+        self._sync_audio_ui()
+
+    def _sync_audio_ui(self) -> None:
+        mic_available = bool(self.microphones)
+        system_available = bool(self.system_audio_sources)
+
+        self._syncing_audio_ui = True
+        try:
+            self.mic_check.set_sensitive(mic_available)
+            if not mic_available and self.mic_check.get_active():
+                self.mic_check.set_active(False)
+
+            self.system_check.set_sensitive(system_available)
+            if not system_available and self.system_check.get_active():
+                self.system_check.set_active(False)
+        finally:
+            self._syncing_audio_ui = False
+
         self.mic_combo.set_sensitive(
-            available and self.mic_check.get_active()
+            mic_available and self.mic_check.get_active()
         )
 
-    def _refresh_microphones(self) -> bool:
+    def _refresh_audio_devices(self) -> bool:
         if self.recorder.active:
             return False
 
         new_microphones = list_microphones()
-        new_signature = tuple(
-            (source.name, source.description)
-            for source in new_microphones
+        new_system_audio = list_system_audio_sources()
+        new_signature = (
+            tuple(
+                (source.name, source.description)
+                for source in new_microphones
+            ),
+            tuple(
+                (source.name, source.description)
+                for source in new_system_audio
+            ),
         )
-        if new_signature == self._microphone_signature:
+        if new_signature == self._audio_signature:
             return False
 
         preferred = self.mic_combo.get_active_id()
         self.microphones = new_microphones
-        self._microphone_signature = new_signature
+        self.system_audio_sources = new_system_audio
+        self._audio_signature = new_signature
         self._populate_microphones(preferred)
-        self._sync_microphone_ui()
-        self._set_status("Microphone devices updated")
+        self._sync_audio_ui()
+        self._set_status("Audio devices updated")
         return True
 
-    def _poll_microphones(self) -> bool:
+    def _poll_audio_devices(self) -> bool:
         if not self.recorder.active:
-            self._refresh_microphones()
+            self._refresh_audio_devices()
         return True
 
     def _selected_microphone(self) -> Optional[str]:
@@ -215,14 +269,22 @@ class RecorderWindow(Gtk.ApplicationWindow):
             return None
         return self.mic_combo.get_active_id()
 
+    def _selected_system_audio(self) -> Optional[str]:
+        if not self.system_check.get_active():
+            return None
+        return default_system_audio_source(self.system_audio_sources)
+
     def _on_start(self, _button) -> None:
-        # Refresh immediately before capture so a microphone connected just
-        # before Start is not missed by the periodic idle poll.
-        self._refresh_microphones()
+        self._refresh_audio_devices()
 
         microphone = self._selected_microphone()
+        system_audio = self._selected_system_audio()
+
         if self.mic_check.get_active() and not microphone:
             self._show_error("No microphone is available")
+            return
+        if self.system_check.get_active() and not system_audio:
+            self._show_error("No system-audio monitor is available")
             return
 
         output_path = collision_safe_output_path(
@@ -233,6 +295,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
                 self._selected_fps(),
                 output_path,
                 microphone_device=microphone,
+                system_audio_device=system_audio,
             )
         except PortalCancelled:
             self._set_status("Screen selection cancelled")
@@ -258,7 +321,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
             GLib.source_remove(self._timer_id)
             self._timer_id = 0
         self.stack.set_visible_child_name("idle")
-        self._refresh_microphones()
+        self._refresh_audio_devices()
 
         if self._close_after_stop:
             self._close_after_stop = False

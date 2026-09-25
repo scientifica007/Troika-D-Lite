@@ -8,7 +8,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import GLib, Gst
 
 from .pipeline import (
-    REQUIRED_MICROPHONE_GST_ELEMENTS,
+    REQUIRED_AUDIO_GST_ELEMENTS,
     REQUIRED_VIDEO_GST_ELEMENTS,
     build_video_pipeline,
 )
@@ -16,7 +16,7 @@ from .portal import PortalClient
 
 
 FINALIZE_TIMEOUT_SECONDS = 12
-SOURCE_NAMES = ("screen_src", "mic_src")
+SOURCE_NAMES = ("screen_src", "mic_src", "system_audio_src")
 
 
 def is_wayland_session() -> bool:
@@ -49,20 +49,21 @@ class Recorder:
         self.stopping = False
         self.active_fps: Optional[int] = None
         self.active_microphone = False
+        self.active_system_audio = False
 
     @property
     def active(self) -> bool:
         return self.pipeline is not None
 
-    def _require_runtime(self, include_microphone: bool) -> None:
+    def _require_runtime(self, include_audio: bool) -> None:
         if not is_wayland_session():
             raise RuntimeError(
                 "Troika D Lite currently supports Ubuntu/Wayland only"
             )
 
         required = list(REQUIRED_VIDEO_GST_ELEMENTS)
-        if include_microphone:
-            required.extend(REQUIRED_MICROPHONE_GST_ELEMENTS)
+        if include_audio:
+            required.extend(REQUIRED_AUDIO_GST_ELEMENTS)
 
         missing = [
             name
@@ -80,14 +81,22 @@ class Recorder:
         fps: int,
         output_path: Path,
         microphone_device: Optional[str] = None,
+        system_audio_device: Optional[str] = None,
     ) -> None:
         if self.pipeline is not None or self.portal_session is not None:
             raise RuntimeError("Recorder is already busy")
         if fps not in (15, 30):
             raise ValueError("FPS must be 15 or 30")
+        if microphone_device is not None and system_audio_device is not None:
+            raise ValueError(
+                "L3 supports microphone or system audio, not both"
+            )
 
         include_microphone = microphone_device is not None
-        self._require_runtime(include_microphone)
+        include_system_audio = system_audio_device is not None
+        self._require_runtime(
+            include_microphone or include_system_audio
+        )
         self.stopping = False
 
         try:
@@ -108,11 +117,13 @@ class Recorder:
                 fps,
                 output_path,
                 microphone_device=microphone_device,
+                system_audio_device=system_audio_device,
             )
             pipeline = Gst.parse_launch(plan.description)
             self.pipeline = pipeline
             self.active_fps = fps
             self.active_microphone = include_microphone
+            self.active_system_audio = include_system_audio
 
             self.bus = pipeline.get_bus()
             self.bus.add_signal_watch()
@@ -128,9 +139,13 @@ class Recorder:
                 )
 
             self.state_cb(True)
-            mic_label = " — microphone" if include_microphone else ""
+            audio_label = ""
+            if include_microphone:
+                audio_label = " — microphone"
+            elif include_system_audio:
+                audio_label = " — system audio"
             self.status_cb(
-                f"Recording — {fps} FPS — {plan.encoder}{mic_label}"
+                f"Recording — {fps} FPS — {plan.encoder}{audio_label}"
             )
         except Exception:
             self._force_null_and_cleanup()
@@ -219,6 +234,7 @@ class Recorder:
             "Video timing stats "
             f"[{reason}] fps={self.active_fps} "
             f"mic={int(self.active_microphone)} "
+            f"system={int(self.active_system_audio)} "
             f"in={values['in']} out={values['out']} "
             f"drop={values['drop']} "
             f"duplicate={values['duplicate']}",
@@ -329,6 +345,7 @@ class Recorder:
         self.stopping = False
         self.active_fps = None
         self.active_microphone = False
+        self.active_system_audio = False
 
         if was_active:
             self.state_cb(False)
