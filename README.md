@@ -25,7 +25,7 @@ Validated recording states:
 - system-side Portal Stop;
 - microphone hot-plug and selection.
 
-L6 adds native Debian/Ubuntu packaging and an explicit runtime dependency audit. The package is still a development artifact until the L6 human installation gate passes.
+L6 native Debian/Ubuntu packaging and dependency auditing passed automated and human installation checks. L7 performs the controlled performance benchmark and final field acceptance before a beta release decision.
 
 ## Product boundary
 
@@ -77,7 +77,7 @@ Start with:
 - `docs/L3-SYSTEM-AUDIO.md`
 - `docs/L4-DUAL-AUDIO.md`
 - `docs/L5-PRODUCT-UI-DESKTOP.md`
-- `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`
+- `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`\n- `docs/L7-PERFORMANCE-FINAL-ACCEPTANCE.md`
 
 Field-test evidence is kept under `docs/FIELD-TEST-*.md`.
 
