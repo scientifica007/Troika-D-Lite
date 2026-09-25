@@ -69,7 +69,6 @@ class RecorderWindow(Gtk.ApplicationWindow):
         self._device_poll_id = 0
         self._started_us = 0
         self._close_after_stop = False
-        self._syncing_audio_ui = False
 
         self.connect("delete-event", self._on_delete_event)
 
@@ -94,7 +93,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
 
         self.mic_check = Gtk.CheckButton(label="Record microphone")
         self.mic_check.set_active(False)
-        self.mic_check.connect("toggled", self._on_microphone_toggled)
+        self.mic_check.connect("toggled", self._sync_audio_ui)
         idle.pack_start(self.mic_check, False, False, 0)
 
         self.mic_combo = Gtk.ComboBoxText()
@@ -103,7 +102,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
 
         self.system_check = Gtk.CheckButton(label="Record system audio")
         self.system_check.set_active(False)
-        self.system_check.connect("toggled", self._on_system_audio_toggled)
+        self.system_check.connect("toggled", self._sync_audio_ui)
         idle.pack_start(self.system_check, False, False, 0)
 
         fps_box = Gtk.Box(
@@ -146,7 +145,7 @@ class RecorderWindow(Gtk.ApplicationWindow):
         stop.connect("clicked", self._on_stop)
         recording.pack_start(stop, False, False, 0)
 
-        self.status = Gtk.Label(label="L3 system-audio milestone")
+        self.status = Gtk.Label(label="L4 dual-audio milestone")
         self.status.set_line_wrap(True)
         root.pack_end(self.status, False, False, 0)
 
@@ -193,39 +192,17 @@ class RecorderWindow(Gtk.ApplicationWindow):
         elif ids:
             self.mic_combo.set_active(0)
 
-    def _on_microphone_toggled(self, _button) -> None:
-        if self._syncing_audio_ui:
-            return
-        if self.mic_check.get_active() and self.system_check.get_active():
-            self._syncing_audio_ui = True
-            self.system_check.set_active(False)
-            self._syncing_audio_ui = False
-        self._sync_audio_ui()
-
-    def _on_system_audio_toggled(self, _button) -> None:
-        if self._syncing_audio_ui:
-            return
-        if self.system_check.get_active() and self.mic_check.get_active():
-            self._syncing_audio_ui = True
-            self.mic_check.set_active(False)
-            self._syncing_audio_ui = False
-        self._sync_audio_ui()
-
-    def _sync_audio_ui(self) -> None:
+    def _sync_audio_ui(self, *_args) -> None:
         mic_available = bool(self.microphones)
         system_available = bool(self.system_audio_sources)
 
-        self._syncing_audio_ui = True
-        try:
-            self.mic_check.set_sensitive(mic_available)
-            if not mic_available and self.mic_check.get_active():
-                self.mic_check.set_active(False)
+        self.mic_check.set_sensitive(mic_available)
+        if not mic_available and self.mic_check.get_active():
+            self.mic_check.set_active(False)
 
-            self.system_check.set_sensitive(system_available)
-            if not system_available and self.system_check.get_active():
-                self.system_check.set_active(False)
-        finally:
-            self._syncing_audio_ui = False
+        self.system_check.set_sensitive(system_available)
+        if not system_available and self.system_check.get_active():
+            self.system_check.set_active(False)
 
         self.mic_combo.set_sensitive(
             mic_available and self.mic_check.get_active()

@@ -9,6 +9,7 @@ from gi.repository import GLib, Gst
 
 from .pipeline import (
     REQUIRED_AUDIO_GST_ELEMENTS,
+    REQUIRED_DUAL_AUDIO_GST_ELEMENTS,
     REQUIRED_VIDEO_GST_ELEMENTS,
     build_video_pipeline,
 )
@@ -55,7 +56,11 @@ class Recorder:
     def active(self) -> bool:
         return self.pipeline is not None
 
-    def _require_runtime(self, include_audio: bool) -> None:
+    def _require_runtime(
+        self,
+        include_audio: bool,
+        include_dual_audio: bool,
+    ) -> None:
         if not is_wayland_session():
             raise RuntimeError(
                 "Troika D Lite currently supports Ubuntu/Wayland only"
@@ -64,6 +69,8 @@ class Recorder:
         required = list(REQUIRED_VIDEO_GST_ELEMENTS)
         if include_audio:
             required.extend(REQUIRED_AUDIO_GST_ELEMENTS)
+        if include_dual_audio:
+            required.extend(REQUIRED_DUAL_AUDIO_GST_ELEMENTS)
 
         missing = [
             name
@@ -87,16 +94,13 @@ class Recorder:
             raise RuntimeError("Recorder is already busy")
         if fps not in (15, 30):
             raise ValueError("FPS must be 15 or 30")
-        if microphone_device is not None and system_audio_device is not None:
-            raise ValueError(
-                "L3 supports microphone or system audio, not both"
-            )
 
         include_microphone = microphone_device is not None
         include_system_audio = system_audio_device is not None
-        self._require_runtime(
-            include_microphone or include_system_audio
-        )
+        include_audio = include_microphone or include_system_audio
+        include_dual_audio = include_microphone and include_system_audio
+
+        self._require_runtime(include_audio, include_dual_audio)
         self.stopping = False
 
         try:
@@ -140,7 +144,9 @@ class Recorder:
 
             self.state_cb(True)
             audio_label = ""
-            if include_microphone:
+            if include_dual_audio:
+                audio_label = " — microphone + system audio"
+            elif include_microphone:
                 audio_label = " — microphone"
             elif include_system_audio:
                 audio_label = " — system audio"

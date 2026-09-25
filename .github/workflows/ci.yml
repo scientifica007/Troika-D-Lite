@@ -54,7 +54,7 @@ jobs:
           for element in \
             pipewiresrc queue videoconvert videorate videoscale \
             x264enc h264parse mp4mux filesink \
-            pulsesrc audioconvert audioresample avenc_aac
+            pulsesrc audioconvert audioresample avenc_aac audiomixer
           do
             gst-inspect-1.0 "$element" >/dev/null
           done

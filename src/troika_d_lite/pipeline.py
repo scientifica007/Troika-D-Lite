@@ -8,6 +8,7 @@ AUDIO_LATENCY_US = 20_000
 AUDIO_QUEUE_NS = 3_000_000_000
 AUDIO_RATE_HZ = 48_000
 AUDIO_BITRATE_BPS = 128_000
+AUDIO_MIXER_LATENCY_MS = 100
 
 VIDEO_CAPTURE_QUEUE_NS = 1_000_000_000
 VIDEO_MUX_QUEUE_NS = 3_000_000_000
@@ -38,8 +39,11 @@ REQUIRED_AUDIO_GST_ELEMENTS = (
     "avenc_aac",
 )
 
-# Compatibility name retained while L3 broadens the same audio path from
-# microphone-only to microphone-or-system-audio.
+REQUIRED_DUAL_AUDIO_GST_ELEMENTS = (
+    "audiomixer",
+)
+
+# Compatibility name retained for callers/tests that refer to the L2 name.
 REQUIRED_MICROPHONE_GST_ELEMENTS = REQUIRED_AUDIO_GST_ELEMENTS
 
 
@@ -83,7 +87,7 @@ def _video_source(stream: VideoStream) -> str:
     )
 
 
-def _single_audio_chain(
+def _audio_source(
     device: str,
     source_name: str,
     queue_name: str,
@@ -95,9 +99,55 @@ def _single_audio_chain(
         "provide-clock=false slave-method=resample ! "
         "audioconvert ! audioresample ! "
         f"audio/x-raw,rate={AUDIO_RATE_HZ} ! "
-        f"{_queue(queue_name, AUDIO_QUEUE_NS)} ! "
-        f"avenc_aac bitrate={AUDIO_BITRATE_BPS} ! "
-        f"{_queue('audio_mux_q', AUDIO_QUEUE_NS)} ! mux. "
+        f"{_queue(queue_name, AUDIO_QUEUE_NS)}"
+    )
+
+
+def _audio_chain(
+    microphone_device: Optional[str],
+    system_audio_device: Optional[str],
+) -> str:
+    sources = []
+    if microphone_device is not None:
+        sources.append(
+            (
+                microphone_device,
+                "mic_src",
+                "mic_capture_q",
+            )
+        )
+    if system_audio_device is not None:
+        sources.append(
+            (
+                system_audio_device,
+                "system_audio_src",
+                "system_capture_q",
+            )
+        )
+
+    if not sources:
+        return ""
+
+    mux_queue = _queue("audio_mux_q", AUDIO_QUEUE_NS)
+    encoder = f"avenc_aac bitrate={AUDIO_BITRATE_BPS}"
+
+    if len(sources) == 1:
+        device, source_name, queue_name = sources[0]
+        return (
+            f"{_audio_source(device, source_name, queue_name)} ! "
+            f"{encoder} ! {mux_queue} ! mux. "
+        )
+
+    branches = " ".join(
+        f"{_audio_source(device, source_name, queue_name)} ! amix."
+        for device, source_name, queue_name in sources
+    )
+    return (
+        f"{branches} "
+        f"audiomixer name=amix latency={AUDIO_MIXER_LATENCY_MS} ! "
+        "audioconvert ! audioresample ! "
+        f"audio/x-raw,rate={AUDIO_RATE_HZ} ! "
+        f"{encoder} ! {mux_queue} ! mux. "
     )
 
 
@@ -114,11 +164,6 @@ def build_video_pipeline(
         raise ValueError("Microphone device cannot be empty")
     if system_audio_device is not None and not system_audio_device.strip():
         raise ValueError("System-audio device cannot be empty")
-    if microphone_device is not None and system_audio_device is not None:
-        raise ValueError(
-            "L3 supports one audio source at a time; "
-            "microphone + system-audio mixing arrives in L4"
-        )
 
     video_capture_q = _queue(
         "video_capture_q",
@@ -133,20 +178,10 @@ def build_video_pipeline(
         f"reserved-moov-update-period={ROBUST_MP4_UPDATE_PERIOD_NS}"
     )
 
-    if microphone_device is not None:
-        audio_chain = _single_audio_chain(
-            microphone_device,
-            "mic_src",
-            "mic_capture_q",
-        )
-    elif system_audio_device is not None:
-        audio_chain = _single_audio_chain(
-            system_audio_device,
-            "system_audio_src",
-            "system_capture_q",
-        )
-    else:
-        audio_chain = ""
+    audio_chain = _audio_chain(
+        microphone_device,
+        system_audio_device,
+    )
 
     description = (
         f"{_video_source(stream)} ! "

@@ -79,6 +79,23 @@ class RecorderStopTests(unittest.TestCase):
         "troika_d_lite.recorder.GLib.timeout_add_seconds",
         return_value=123,
     )
+    def test_stop_pushes_eos_to_all_dual_audio_sources(self, _timeout):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        pipeline = _Pipeline(include_mic=True, include_system=True)
+        recorder.pipeline = pipeline
+
+        recorder.stop()
+
+        self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.mic.pad.events, 1)
+        self.assertEqual(pipeline.system.pad.events, 1)
+        self.assertEqual(pipeline.fallback_events, 0)
+        self.assertEqual(recorder.stop_timeout_id, 123)
+
+    @patch(
+        "troika_d_lite.recorder.GLib.timeout_add_seconds",
+        return_value=123,
+    )
     def test_video_only_stop_still_uses_screen_source(self, _timeout):
         recorder = Recorder(lambda _text: None, lambda _active: None)
         pipeline = _Pipeline()
