@@ -114,13 +114,20 @@ Target recording UI:
 
 ```text
 ┌───────────────────────────────┐
-│        Recording 00:03:27     │
+│           Recording           │
 │                               │
-│          ■ Stop               │
+│        30 FPS · Mic + System  │
+│                               │
+│       ■ Stop Recording        │
 └───────────────────────────────┘
 ```
 
 No large Settings screen is part of v0.1.
+
+The recording view is intentionally static. A once-per-second elapsed-time
+label was field-tested during L7 and removed because, during Full Screen
+capture, its self-generated compositor updates materially increased low-motion
+CPU usage. Elapsed time is therefore not a v0.1 requirement.
 
 ## 8. Output
 

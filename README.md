@@ -10,7 +10,7 @@ Its product rule is intentionally narrow:
 
 ## Current status
 
-The core v0.1 recorder and minimal product UI are implemented and field-validated on Ubuntu 24.04 / Wayland through L5.
+Troika D Lite v0.1 has completed implementation, packaging, performance benchmarking, and final field acceptance on Ubuntu 24.04 / Wayland through L7.
 
 Validated recording states:
 
@@ -25,7 +25,9 @@ Validated recording states:
 - system-side Portal Stop;
 - microphone hot-plug and selection.
 
-L6 native Debian/Ubuntu packaging and dependency auditing passed automated and human installation checks. L7 performs the controlled performance benchmark and final field acceptance before a beta release decision.
+L6 native Debian/Ubuntu packaging and dependency auditing passed automated and human installation checks. L7 performance and final field acceptance also passed.
+
+The current release candidate is **v0.1.0-beta.1**. L8 prepares and audits the release metadata and artifacts; no tag or GitHub Release is created until the release decision is explicitly approved.
 
 ## Product boundary
 
@@ -79,6 +81,8 @@ Start with:
 - `docs/L5-PRODUCT-UI-DESKTOP.md`
 - `docs/L6-PACKAGING-DEPENDENCY-AUDIT.md`
 - `docs/L7-PERFORMANCE-FINAL-ACCEPTANCE.md`
+- `docs/L8-BETA-RELEASE.md`
+- `docs/RELEASE-NOTES-v0.1.0-beta.1.md`
 
 Field-test evidence is kept under `docs/FIELD-TEST-*.md`.
 
