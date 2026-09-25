@@ -89,3 +89,77 @@ The comparison runner refuses a changed Lite `src/`, a mismatched Troika D commi
 **Layer 1: PASS.**
 
 L7 remains open pending Layer 2 and the final installed-package run.
+
+
+## Layer 2 — controlled repeated comparison
+
+The complete 12-session comparison finished successfully.
+
+All four app/scenario groups contain three successful EOS runs.
+
+| Scenario | App | Startup ms | Idle CPU % | Idle RSS MiB | Record CPU % | Record RSS MiB | Peak RSS MiB | Finalize ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A — 15 FPS video-only low | Lite | 334.836 | 10.781 | 66.828 | 41.685 | 112.388 | 114.664 | 487.754 |
+| A — 15 FPS video-only low | Troika D | 326.110 | 10.277 | 67.378 | 17.139 | 114.308 | 116.051 | 2747.759 |
+| B — 30 FPS dual-audio high | Lite | 325.550 | 10.683 | 66.645 | 150.798 | 144.676 | 148.621 | 353.855 |
+| B — 30 FPS dual-audio high | Troika D | 326.960 | 24.654 | 68.650 | 148.157 | 148.488 | 152.219 | 377.213 |
+
+Every run finalized through normal EOS.
+
+### Scenario A interpretation
+
+Startup medians are effectively similar at this scale.
+
+Lite mean recording RSS is about 1.9 MiB lower (~1.7%) and peak RSS about 1.4 MiB lower (~1.2%).
+
+Lite finalization median is about 2.26 seconds faster (~82%).
+
+However, Lite recording CPU is much higher: 41.685% vs 17.139%, approximately 143% higher relative to Troika D.
+
+This CPU difference is large enough to investigate before final L7 acceptance because low-resource behavior is a primary Lite objective.
+
+### Scenario B interpretation
+
+Startup medians are effectively identical.
+
+Lite idle CPU is lower by about 14 percentage points (~57%), and idle RSS lower by about 2.0 MiB (~2.9%).
+
+Recording CPU is effectively similar: Lite is about 1.8% higher.
+
+Lite recording RSS is about 3.8 MiB lower (~2.6%) and peak RSS about 3.6 MiB lower (~2.4%).
+
+Lite finalization median is about 23 ms faster (~6.2%).
+
+### Full-screen pipeline comparison
+
+A source review of the exact benchmark revisions found no material difference in the Full Screen video pipeline capable of explaining Scenario A by itself.
+
+Both use the same effective chain:
+
+`pipewiresrc -> queue -> videoconvert/I420 -> videorate -> videoscale -> x264enc 4500/veryfast -> h264parse -> mp4mux`.
+
+### Low-motion UI-damage hypothesis
+
+The applications differ in one relevant visible behavior:
+
+- Lite updates a live elapsed-time label once per second while recording;
+- Troika D has no equivalent live recording timer.
+
+Because the selected source is the complete screen, the recorder window itself is part of the captured compositor output when visible.
+
+The videorate input counters support the hypothesis that the two “low-motion” runs were not equivalent at the compositor-damage level:
+
+- representative Lite Scenario A inputs were substantially above the Troika D inputs;
+- Troika D commonly received only about 32–34 real PipeWire frames in the 60-second interval, while Lite received substantially more real input frames.
+
+The target output FPS is still produced by videorate duplication, but processing more real changing full-screen frames can materially increase conversion/encoding work.
+
+This is a strong hypothesis, not yet a proven root cause.
+
+### Layer 2 status
+
+**CONTROLLED REPETITIONS: COMPLETE.**
+
+**PERFORMANCE INTERPRETATION: OPEN — focused low-motion UI-visibility probe required.**
+
+No pipeline change is justified. The next test isolates whether Lite's visible dynamic recording UI is responsible for the Scenario A CPU gap.

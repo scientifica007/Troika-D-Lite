@@ -261,6 +261,20 @@ Review together:
 
 A one-off finalization timeout must be logged. Repeated timeout behavior is a release blocker until investigated.
 
+## Layer 2 field status
+
+**MEASUREMENTS COMPLETE — 2026-09-25.**
+
+All 12 controlled runs completed through normal EOS.
+
+Scenario B shows essentially equivalent recording CPU with modestly lower Lite RSS.
+
+Scenario A shows a reproducible large Lite CPU disadvantage in the low-motion video-only condition. Exact pipeline review does not reveal a material Full Screen chain difference, while Lite's visible one-second recording timer creates compositor changes that Troika D does not.
+
+Before final acceptance, perform one focused Lite low-motion probe with the recording window not visible on the captured active workspace during the 60-second measurement. This test determines whether self-generated UI damage explains the apparent CPU regression.
+
+Detailed medians and interpretation are recorded in `docs/FIELD-TEST-L7-2026-09-25.md`.
+
 ## Final field acceptance
 
 After the benchmark, perform one final installed-package recording using the L6 package path:
