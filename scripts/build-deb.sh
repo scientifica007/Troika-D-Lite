@@ -90,7 +90,7 @@ Priority: optional
 Architecture: all
 Maintainer: Scientifica <scientifica007@users.noreply.github.com>
 Homepage: https://github.com/scientifica007/Troika-D-Lite
-Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-3.0, gir1.2-gstreamer-1.0, gstreamer1.0-pipewire, gstreamer1.0-pulseaudio, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly, gstreamer1.0-libav, pulseaudio-utils, xdg-desktop-portal
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-3.0, gir1.2-gstreamer-1.0, gstreamer1.0-pipewire, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-plugins-ugly, gstreamer1.0-libav, pulseaudio-utils, xdg-desktop-portal
 Recommends: pipewire, xdg-desktop-portal-gnome | xdg-desktop-portal-gtk
 Description: minimal screen and audio recorder for Linux
  Troika D Lite records the full screen with optional microphone and system
