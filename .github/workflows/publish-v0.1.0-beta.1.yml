@@ -24,7 +24,8 @@ jobs:
     env:
       TAG: v0.1.0-beta.1
       RELEASE_NAME: Troika D Lite v0.1.0-beta.1
-      DEB_NAME: troika-d-lite_0.1.0~beta1-1_all.deb
+      BUILD_DEB_NAME: troika-d-lite_0.1.0~beta1-1_all.deb
+      RELEASE_ASSET_NAME: troika-d-lite_0.1.0.beta1-1_all.deb
       GH_TOKEN: ${{ github.token }}
 
     steps:
@@ -53,7 +54,10 @@ jobs:
       - name: Install package-verification tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y             desktop-file-utils             appstream             lintian
+          sudo apt-get install -y \
+            desktop-file-utils \
+            appstream \
+            lintian
 
       - name: Build and verify final Debian asset
         id: package
@@ -61,21 +65,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          rm -rf dist-deb
+          rm -rf dist-deb dist-release
           DEB_PATH="$(bash scripts/build-deb.sh)"
           bash scripts/verify-deb.sh "$DEB_PATH"
           lintian --fail-on error "$DEB_PATH"
 
-          test "$(basename "$DEB_PATH")" = "$DEB_NAME"
+          test "$(basename "$DEB_PATH")" = "$BUILD_DEB_NAME"
 
-          SHA256="$(sha256sum "$DEB_PATH" | awk '{print $1}')"
-          echo "deb_path=$DEB_PATH" >> "$GITHUB_OUTPUT"
+          mkdir -p dist-release
+          ASSET_PATH="dist-release/$RELEASE_ASSET_NAME"
+          cp "$DEB_PATH" "$ASSET_PATH"
+
+          SHA256="$(sha256sum "$ASSET_PATH" | awk '{print $1}')"
+          echo "asset_path=$ASSET_PATH" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
           {
             echo "### Release asset"
             echo
-            echo "- File: \`$DEB_NAME\`"
+            echo "- File: \`$RELEASE_ASSET_NAME\`"
+            echo "- Debian version: \`0.1.0~beta1-1\`"
             echo "- SHA256: \`$SHA256\`"
             echo "- Commit: \`$RELEASE_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -90,22 +99,41 @@ jobs:
             test "$TAG_SHA" = "$RELEASE_SHA"
             echo "Existing tag points to the expected release SHA."
           else
-            gh api               --method POST               "repos/${GITHUB_REPOSITORY}/git/refs"               -f "ref=refs/tags/${TAG}"               -f "sha=${RELEASE_SHA}" >/dev/null
+            gh api \
+              --method POST \
+              "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f "ref=refs/tags/${TAG}" \
+              -f "sha=${RELEASE_SHA}" >/dev/null
             echo "Created tag $TAG at $RELEASE_SHA."
           fi
 
       - name: Create GitHub prerelease and upload Debian asset
         shell: bash
         env:
-          DEB_PATH: ${{ steps.package.outputs.deb_path }}
+          ASSET_PATH: ${{ steps.package.outputs.asset_path }}
         run: |
           set -euo pipefail
 
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release already exists; verifying and refreshing the Debian asset."
-            gh release upload               "$TAG"               "$DEB_PATH"               --repo "$GITHUB_REPOSITORY"               --clobber
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_NAME" \
+              --notes-file docs/RELEASE-NOTES-v0.1.0-beta.1.md
+
+            gh release upload \
+              "$TAG" \
+              "$ASSET_PATH" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
           else
-            gh release create               "$TAG"               "$DEB_PATH"               --repo "$GITHUB_REPOSITORY"               --verify-tag               --prerelease               --title "$RELEASE_NAME"               --notes-file docs/RELEASE-NOTES-v0.1.0-beta.1.md
+            gh release create \
+              "$TAG" \
+              "$ASSET_PATH" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --prerelease \
+              --title "$RELEASE_NAME" \
+              --notes-file docs/RELEASE-NOTES-v0.1.0-beta.1.md
           fi
 
       - name: Verify published tag, release, and asset
@@ -114,19 +142,24 @@ jobs:
           set -euo pipefail
 
           TAG_SHA="$(
-            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}"               --jq '.object.sha'
+            gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" \
+              --jq '.object.sha'
           )"
           test "$TAG_SHA" = "$RELEASE_SHA"
 
           RELEASE_JSON="$(
-            gh release view "$TAG"               --repo "$GITHUB_REPOSITORY"               --json tagName,name,isDraft,isPrerelease,url,assets
+            gh release view "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json tagName,name,isDraft,isPrerelease,url,assets
           )"
 
           test "$(jq -r '.tagName' <<<"$RELEASE_JSON")" = "$TAG"
           test "$(jq -r '.name' <<<"$RELEASE_JSON")" = "$RELEASE_NAME"
           test "$(jq -r '.isDraft' <<<"$RELEASE_JSON")" = "false"
           test "$(jq -r '.isPrerelease' <<<"$RELEASE_JSON")" = "true"
-          jq -e --arg name "$DEB_NAME"             '.assets | any(.name == $name)'             <<<"$RELEASE_JSON" >/dev/null
+          jq -e --arg name "$RELEASE_ASSET_NAME" \
+            '.assets | any(.name == $name)' \
+            <<<"$RELEASE_JSON" >/dev/null
 
           RELEASE_URL="$(jq -r '.url' <<<"$RELEASE_JSON")"
           echo "Published and verified: $RELEASE_URL"

@@ -86,11 +86,21 @@ Before the release decision, CI must pass and verify:
 
 ## Artifact expected for publication
 
-Primary binary release asset:
+Primary Debian build filename:
 
 ```text
 troika-d-lite_0.1.0~beta1-1_all.deb
 ```
+
+Published GitHub release asset filename:
+
+```text
+troika-d-lite_0.1.0.beta1-1_all.deb
+```
+
+GitHub normalizes `~` to `.` in uploaded asset filenames. This does not
+change the Debian package version stored in the package metadata, which
+remains `0.1.0~beta1-1`.
 
 Source remains available through the Git tag and GitHub source archives.
 
@@ -129,7 +139,7 @@ After explicit approval:
 4. verify the package;
 5. create tag `v0.1.0-beta.1` on that exact commit;
 6. create a GitHub prerelease named **Troika D Lite v0.1.0-beta.1**;
-7. attach `troika-d-lite_0.1.0~beta1-1_all.deb`;
+7. attach the GitHub-safe asset `troika-d-lite_0.1.0.beta1-1_all.deb` (Debian package version remains `0.1.0~beta1-1`);
 8. use `docs/RELEASE-NOTES-v0.1.0-beta.1.md` as the release-note basis;
 9. verify the published tag, asset, and release metadata.
 
