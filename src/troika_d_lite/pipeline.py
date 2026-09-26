@@ -18,6 +18,7 @@ ROBUST_MP4_UPDATE_PERIOD_NS = 1_000_000_000
 
 VIDEO_BITRATE_KBPS = 4500
 X264_SPEED_PRESET = "veryfast"
+X264_HIGH_LOAD_SPEED_PRESET = "ultrafast"
 X264_KEY_INT_MAX = 60
 
 REQUIRED_VIDEO_GST_ELEMENTS = (
@@ -25,6 +26,7 @@ REQUIRED_VIDEO_GST_ELEMENTS = (
     "queue",
     "videoconvert",
     "videorate",
+    "imagefreeze",
     "videoscale",
     "x264enc",
     "h264parse",
@@ -182,16 +184,39 @@ def build_video_pipeline(
         microphone_device,
         system_audio_device,
     )
+    include_audio = (
+        microphone_device is not None
+        or system_audio_device is not None
+    )
+
+    if include_audio:
+        video_rate_chain = (
+            "imagefreeze name=video_hold "
+            "is-live=true allow-replace=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+            "videorate name=video_rate skip-to-first=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+        )
+    else:
+        video_rate_chain = (
+            "videorate name=video_rate skip-to-first=true ! "
+            f"video/x-raw,framerate={fps}/1 ! "
+        )
+
+    encoder_speed_preset = (
+        X264_HIGH_LOAD_SPEED_PRESET
+        if include_audio and fps == 30
+        else X264_SPEED_PRESET
+    )
 
     description = (
         f"{_video_source(stream)} ! "
         f"{video_capture_q} ! "
         "videoconvert ! video/x-raw,format=I420 ! "
-        "videorate name=video_rate skip-to-first=true ! "
-        f"video/x-raw,framerate={fps}/1 ! "
+        f"{video_rate_chain}"
         "videoscale ! "
         f"x264enc bitrate={VIDEO_BITRATE_KBPS} "
-        f"speed-preset={X264_SPEED_PRESET} "
+        f"speed-preset={encoder_speed_preset} "
         f"tune=zerolatency key-int-max={X264_KEY_INT_MAX} ! "
         "h264parse ! "
         f"{video_mux_q} ! mux. "

@@ -82,6 +82,88 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
 
+    def test_audio_mode_adds_live_video_heartbeat(self):
+        for kwargs in (
+            {"microphone_device": "mic.test"},
+            {"system_audio_device": "sink.monitor"},
+            {
+                "microphone_device": "mic.test",
+                "system_audio_device": "sink.monitor",
+            },
+        ):
+            with self.subTest(kwargs=kwargs):
+                plan = build_video_pipeline(
+                    VideoStream(fd=9, node_id=77),
+                    30,
+                    Path("/tmp/a.mp4"),
+                    **kwargs,
+                )
+                self.assertIn(
+                    "imagefreeze name=video_hold "
+                    "is-live=true allow-replace=true",
+                    plan.description,
+                )
+                hold_index = plan.description.index(
+                    "imagefreeze name=video_hold"
+                )
+                rate_index = plan.description.index(
+                    "videorate name=video_rate"
+                )
+                self.assertLess(hold_index, rate_index)
+                self.assertGreaterEqual(
+                    plan.description.count(
+                        "video/x-raw,framerate=30/1"
+                    ),
+                    2,
+                )
+
+    def test_video_only_keeps_sparse_baseline_without_heartbeat(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+        )
+        self.assertNotIn("imagefreeze", plan.description)
+        self.assertIn(
+            "videorate name=video_rate skip-to-first=true",
+            plan.description,
+        )
+
+    def test_30fps_audio_uses_ultrafast_diagnostic_preset(self):
+        for kwargs in (
+            {"microphone_device": "mic.test"},
+            {"system_audio_device": "sink.monitor"},
+            {
+                "microphone_device": "mic.test",
+                "system_audio_device": "sink.monitor",
+            },
+        ):
+            with self.subTest(kwargs=kwargs):
+                plan = build_video_pipeline(
+                    VideoStream(fd=9, node_id=77),
+                    30,
+                    Path("/tmp/a.mp4"),
+                    **kwargs,
+                )
+                self.assertIn("speed-preset=ultrafast", plan.description)
+
+    def test_15fps_audio_keeps_veryfast(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            15,
+            Path("/tmp/a.mp4"),
+            microphone_device="mic.test",
+        )
+        self.assertIn("speed-preset=veryfast", plan.description)
+
+    def test_30fps_video_only_keeps_veryfast(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+        )
+        self.assertIn("speed-preset=veryfast", plan.description)
+
     def test_microphone_only_path_remains_direct(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),

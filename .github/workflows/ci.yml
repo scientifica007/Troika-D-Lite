@@ -63,7 +63,7 @@ jobs:
       - name: Required GStreamer element smoke test
         run: |
           for element in \
-            pipewiresrc queue videoconvert videorate videoscale \
+            pipewiresrc queue videoconvert videorate imagefreeze videoscale \
             x264enc h264parse mp4mux filesink \
             pulsesrc audioconvert audioresample avenc_aac audiomixer
           do

@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from troika_d_lite.recorder import Recorder
+from troika_d_lite.recorder import MIC_GAP_WARN_NS, Recorder
 
 
 class _Pad:
@@ -23,8 +23,14 @@ class _Source:
 
 
 class _Pipeline:
-    def __init__(self, include_mic=False, include_system=False):
+    def __init__(
+        self,
+        include_mic=False,
+        include_system=False,
+        include_hold=False,
+    ):
         self.screen = _Source()
+        self.hold = _Source() if include_hold else None
         self.mic = _Source() if include_mic else None
         self.system = _Source() if include_system else None
         self.fallback_events = 0
@@ -32,6 +38,8 @@ class _Pipeline:
     def get_by_name(self, name):
         if name == "screen_src":
             return self.screen
+        if name == "video_hold":
+            return self.hold
         if name == "mic_src":
             return self.mic
         if name == "system_audio_src":
@@ -58,19 +66,65 @@ class RecorderStartGuardTests(unittest.TestCase):
         self.assertTrue(recorder.busy)
 
 
+class RecorderMicrophoneDiagnosticTests(unittest.TestCase):
+    def test_screen_gap_is_recorded(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder._observe_screen_timing(0)
+        recorder._observe_screen_timing(1_500_000_000)
+
+        self.assertEqual(recorder.screen_buffer_count, 2)
+        self.assertEqual(recorder.screen_gap_count, 1)
+        self.assertEqual(recorder.screen_max_gap_ns, 1_500_000_000)
+
+    def test_continuous_buffers_do_not_count_as_gap(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        duration = 20_000_000
+        recorder._observe_mic_timing(0, duration)
+        recorder._observe_mic_timing(duration, duration)
+        recorder._observe_mic_timing(duration * 2, duration)
+
+        self.assertEqual(recorder.mic_buffer_count, 3)
+        self.assertEqual(recorder.mic_gap_count, 0)
+        self.assertEqual(recorder.mic_max_gap_ns, 0)
+
+    def test_large_timestamp_gap_is_recorded(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        duration = 20_000_000
+        recorder._observe_mic_timing(0, duration)
+        recorder._observe_mic_timing(
+            duration + MIC_GAP_WARN_NS + 50_000_000,
+            duration,
+        )
+
+        self.assertEqual(recorder.mic_gap_count, 1)
+        self.assertEqual(
+            recorder.mic_max_gap_ns,
+            MIC_GAP_WARN_NS + 50_000_000,
+        )
+
+    def test_invalid_pts_and_discontinuity_are_counted(self):
+        recorder = Recorder(lambda _text: None, lambda _active: None)
+        recorder._observe_mic_timing(None, None, discont=True)
+
+        self.assertEqual(recorder.mic_buffer_count, 1)
+        self.assertEqual(recorder.mic_invalid_pts_count, 1)
+        self.assertEqual(recorder.mic_discont_count, 1)
+
+
 class RecorderStopTests(unittest.TestCase):
     @patch(
         "troika_d_lite.recorder.GLib.timeout_add_seconds",
         return_value=123,
     )
-    def test_stop_pushes_eos_to_screen_and_microphone(self, _timeout):
+    def test_stop_pushes_eos_to_heartbeat_and_microphone(self, _timeout):
         recorder = Recorder(lambda _text: None, lambda _active: None)
-        pipeline = _Pipeline(include_mic=True)
+        pipeline = _Pipeline(include_mic=True, include_hold=True)
         recorder.pipeline = pipeline
 
         recorder.stop()
 
-        self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.screen.pad.events, 0)
+        self.assertEqual(pipeline.hold.pad.events, 1)
         self.assertEqual(pipeline.mic.pad.events, 1)
         self.assertEqual(pipeline.fallback_events, 0)
         self.assertEqual(recorder.stop_timeout_id, 123)
@@ -79,14 +133,15 @@ class RecorderStopTests(unittest.TestCase):
         "troika_d_lite.recorder.GLib.timeout_add_seconds",
         return_value=123,
     )
-    def test_stop_pushes_eos_to_screen_and_system_audio(self, _timeout):
+    def test_stop_pushes_eos_to_heartbeat_and_system_audio(self, _timeout):
         recorder = Recorder(lambda _text: None, lambda _active: None)
-        pipeline = _Pipeline(include_system=True)
+        pipeline = _Pipeline(include_system=True, include_hold=True)
         recorder.pipeline = pipeline
 
         recorder.stop()
 
-        self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.screen.pad.events, 0)
+        self.assertEqual(pipeline.hold.pad.events, 1)
         self.assertEqual(pipeline.system.pad.events, 1)
         self.assertEqual(pipeline.fallback_events, 0)
         self.assertEqual(recorder.stop_timeout_id, 123)
@@ -97,12 +152,17 @@ class RecorderStopTests(unittest.TestCase):
     )
     def test_stop_pushes_eos_to_all_dual_audio_sources(self, _timeout):
         recorder = Recorder(lambda _text: None, lambda _active: None)
-        pipeline = _Pipeline(include_mic=True, include_system=True)
+        pipeline = _Pipeline(
+            include_mic=True,
+            include_system=True,
+            include_hold=True,
+        )
         recorder.pipeline = pipeline
 
         recorder.stop()
 
-        self.assertEqual(pipeline.screen.pad.events, 1)
+        self.assertEqual(pipeline.screen.pad.events, 0)
+        self.assertEqual(pipeline.hold.pad.events, 1)
         self.assertEqual(pipeline.mic.pad.events, 1)
         self.assertEqual(pipeline.system.pad.events, 1)
         self.assertEqual(pipeline.fallback_events, 0)
