@@ -18,6 +18,7 @@ ROBUST_MP4_UPDATE_PERIOD_NS = 1_000_000_000
 
 VIDEO_BITRATE_KBPS = 4500
 X264_SPEED_PRESET = "veryfast"
+X264_HIGH_LOAD_SPEED_PRESET = "ultrafast"
 X264_KEY_INT_MAX = 60
 
 REQUIRED_VIDEO_GST_ELEMENTS = (
@@ -202,6 +203,12 @@ def build_video_pipeline(
             f"video/x-raw,framerate={fps}/1 ! "
         )
 
+    encoder_speed_preset = (
+        X264_HIGH_LOAD_SPEED_PRESET
+        if include_audio and fps == 30
+        else X264_SPEED_PRESET
+    )
+
     description = (
         f"{_video_source(stream)} ! "
         f"{video_capture_q} ! "
@@ -209,7 +216,7 @@ def build_video_pipeline(
         f"{video_rate_chain}"
         "videoscale ! "
         f"x264enc bitrate={VIDEO_BITRATE_KBPS} "
-        f"speed-preset={X264_SPEED_PRESET} "
+        f"speed-preset={encoder_speed_preset} "
         f"tune=zerolatency key-int-max={X264_KEY_INT_MAX} ! "
         "h264parse ! "
         f"{video_mux_q} ! mux. "

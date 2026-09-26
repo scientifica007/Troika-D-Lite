@@ -129,6 +129,41 @@ class PipelineTests(unittest.TestCase):
             plan.description,
         )
 
+    def test_30fps_audio_uses_ultrafast_diagnostic_preset(self):
+        for kwargs in (
+            {"microphone_device": "mic.test"},
+            {"system_audio_device": "sink.monitor"},
+            {
+                "microphone_device": "mic.test",
+                "system_audio_device": "sink.monitor",
+            },
+        ):
+            with self.subTest(kwargs=kwargs):
+                plan = build_video_pipeline(
+                    VideoStream(fd=9, node_id=77),
+                    30,
+                    Path("/tmp/a.mp4"),
+                    **kwargs,
+                )
+                self.assertIn("speed-preset=ultrafast", plan.description)
+
+    def test_15fps_audio_keeps_veryfast(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            15,
+            Path("/tmp/a.mp4"),
+            microphone_device="mic.test",
+        )
+        self.assertIn("speed-preset=veryfast", plan.description)
+
+    def test_30fps_video_only_keeps_veryfast(self):
+        plan = build_video_pipeline(
+            VideoStream(fd=9, node_id=77),
+            30,
+            Path("/tmp/a.mp4"),
+        )
+        self.assertIn("speed-preset=veryfast", plan.description)
+
     def test_microphone_only_path_remains_direct(self):
         plan = build_video_pipeline(
             VideoStream(fd=9, node_id=77),

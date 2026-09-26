@@ -314,3 +314,43 @@ Field acceptance now requires both:
 1. continuous audio with no MIC GAP/backpressure;
 2. normal EOS finalization without `finalize-timeout`, with audio and
    video ending together.
+
+
+## 30 FPS high-motion field result
+
+The heartbeat + Stop fix passes the 15 FPS microphone gate, but a 30 FPS
+microphone-only run developed transient A/V backlog after high-motion
+YouTube playback began.
+
+Observed during failure:
+
+```text
+mic_capture_q: 3000 ms
+audio_mux_q:   2517 ms
+video_mux_q:   2733 ms
+```
+
+The run produced four microphone gaps with a maximum gap of 2.440 s and
+GStreamer reported dropped microphone samples because downstream was not
+consuming quickly enough.
+
+Unlike the original sparse-screen failure, `video_mux_q` was also heavily
+backed up. The heartbeat remained active and Stop/EOS completed normally.
+
+### x264 load diagnostic
+
+To isolate whether software H.264 encoding load is the dominant remaining
+30 FPS bottleneck, the diagnostic branch temporarily selects:
+
+```text
+30 FPS + any audio -> x264 speed-preset=ultrafast
+15 FPS             -> x264 speed-preset=veryfast
+30 FPS video-only  -> x264 speed-preset=veryfast
+```
+
+No bitrate, audio, queue, mux, heartbeat, or Stop setting changes in this
+diagnostic.
+
+If high-motion 30 FPS recording becomes stable, the next step is to test
+`superfast` as a potential quality/performance compromise before choosing
+a production preset.
